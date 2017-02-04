@@ -3,5 +3,6 @@
 target/
 Cargo.lock
 .idea/
+.vscode/
 tests/fixtures/index-bare/
 tests/fixtures/index/

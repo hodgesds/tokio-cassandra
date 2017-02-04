@@ -9,6 +9,9 @@ repository = "https://github.com/nhellwig/tokio-cassandra"
 version = "0.0.0"
 
 [dependencies]
+byteorder = "1.0.0"
+error-chain = "0.8.1"
+tokio-core = "0.1.4"
+tokio-proto = "0.1.0"
 
 [features]
-
