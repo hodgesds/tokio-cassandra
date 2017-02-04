@@ -53,12 +53,14 @@ error_chain! {
     }
 }
 
+#[cfg_attr(feature = "with-serde", derive(Deserialize, Serialize))]
 #[derive(PartialEq, Debug, Clone)]
 pub enum Direction {
     Request,
     Response,
 }
 
+#[cfg_attr(feature = "with-serde", derive(Deserialize, Serialize))]
 #[derive(PartialEq, Debug, Clone)]
 pub enum OpCode {
     Error,
@@ -104,6 +106,7 @@ impl OpCode {
     }
 }
 
+#[cfg_attr(feature = "with-serde", derive(Deserialize, Serialize))]
 #[derive(PartialEq, Debug, Clone)]
 pub struct Header {
     pub version: ProtocolVersion,
@@ -201,6 +204,7 @@ impl Header {
 /// connection.
 /// This document describe the version 3 of the protocol. For the changes made since
 /// version 2, see Section 10.
+#[cfg_attr(feature = "with-serde", derive(Deserialize, Serialize))]
 #[derive(PartialEq, Debug, Clone)]
 pub enum ProtocolVersion {
     Version3(Direction),

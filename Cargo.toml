@@ -14,4 +14,14 @@ error-chain = "0.8.1"
 tokio-core = "0.1.4"
 tokio-proto = "0.1.0"
 
+[dependencies.serde]
+optional = true
+version = "0.9"
+
+[dependencies.serde_derive]
+optional = true
+version = "0.9"
+
 [features]
+default_features = []
+with-serde = ["serde_derive", "serde"]
