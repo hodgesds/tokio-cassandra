@@ -1,5 +1,6 @@
 //!  The CQL binary protocol is a frame based protocol. Frames are defined as:
 //!
+//! ```ascii
 //!      0         8        16        24        32         40
 //!      +---------+---------+---------+---------+---------+
 //!      | version |  flags  |      stream       | opcode  |
@@ -11,6 +12,7 @@
 //!      .                                       .
 //!      .                                       .
 //!      +----------------------------------------
+//! ```
 //!
 //!  The protocol is big-endian (network byte order).
 //!
@@ -49,6 +51,12 @@ error_chain! {
             display("Value {} is not a valid opcode", c)
         }
     }
+}
+
+#[derive(PartialEq, Debug, Clone)]
+pub enum Direction {
+    Request,
+    Response,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -153,7 +161,8 @@ impl Header {
         }
 
         let version = match b[0] {
-            0x03 => ProtocolVersion::Version3,
+            0x03 => ProtocolVersion::Version3(Direction::Request),
+            0x83 => ProtocolVersion::Version3(Direction::Response),
             _ => return Err(ErrorKind::UnsupportedVersion(b[0]).into()),
         };
 
@@ -192,10 +201,9 @@ impl Header {
 /// connection.
 /// This document describe the version 3 of the protocol. For the changes made since
 /// version 2, see Section 10.
-// TODO: parse request, response
 #[derive(PartialEq, Debug, Clone)]
 pub enum ProtocolVersion {
-    Version3,
+    Version3(Direction),
 }
 
 #[cfg(test)]
@@ -207,11 +215,11 @@ mod test {
     use super::*;
 
     #[test]
-    fn test_empty_frame() {
+    fn complete() {
         let bytes = b"\x03\x00\x01\x01\x05\x00\x00\x01\x05";
         let h = Header::try_from(&bytes[..]).unwrap();
 
-        assert_eq!(h.version, ProtocolVersion::Version3);
+        assert_eq!(h.version, ProtocolVersion::Version3(Direction::Request));
         assert_eq!(h.is_compressed(), false);
         assert_eq!(h.is_traced(), false);
         assert_eq!(h.stream_id, 257);
@@ -220,14 +228,22 @@ mod test {
     }
 
     #[test]
-    fn test_invalid_op_code() {
+    fn version3_response() {
+        let bytes = b"\x83\x00\x01\x01\x05\x00\x00\x01\x05";
+        let h = Header::try_from(&bytes[..]).unwrap();
+
+        assert_eq!(h.version, ProtocolVersion::Version3(Direction::Response));
+    }
+
+    #[test]
+    fn invalid_op_code() {
         let bytes = b"\x03\x00\x01\x01\x04\x00\x00\x00\x00";
         let res = Header::try_from(&bytes[..]);
 
         assert!(err_is(res, ErrorKind::InvalidOpCode(0x04)));
     }
     #[test]
-    fn test_invalid_length_of_data() {
+    fn invalid_length_of_data() {
         let bytes = b"\x03\x00\x01\x01\x05\x00\x00\x00";
         let res = Header::try_from(&bytes[..]);
 
@@ -235,7 +251,7 @@ mod test {
     }
 
     #[test]
-    fn test_empty_frame_compressed() {
+    fn flags_compressed() {
         let bytes = b"\x03\x01\x00\x00\x05\x00\x00\x00\x00";
         let h = Header::try_from(&bytes[..]).unwrap();
 
@@ -244,7 +260,7 @@ mod test {
     }
 
     #[test]
-    fn test_empty_frame_traced() {
+    fn flags_traced() {
         let bytes = b"\x03\x02\x00\x00\x05\x00\x00\x00\x00";
         let h = Header::try_from(&bytes[..]).unwrap();
 
@@ -253,7 +269,7 @@ mod test {
     }
 
     #[test]
-    fn test_unsupported_version() {
+    fn unsupported_version() {
         let bytes = b"\x04\x02\x00\x00\x05\x00\x00\x00\x00";
         let res = Header::try_from(&bytes[..]);
 
