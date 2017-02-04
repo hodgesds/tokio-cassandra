@@ -1,0 +1,6 @@
+[clog]
+repository = "https://github.com/nhellwig/tokio-cassandra"
+from-latest-tag = true
+
+[sections]
+Improvements = ["imp"]
