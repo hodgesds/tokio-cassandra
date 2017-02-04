@@ -6,7 +6,7 @@ keywords = ["cassandra", "driver", "tokio", "async-io", "general"]
 license = "MIT"
 name = "tokio-cassandra"
 repository = "https://github.com/nhellwig/tokio-cassandra"
-version = "0.1.0"
+version = "0.0.0"
 
 [dependencies]
 
