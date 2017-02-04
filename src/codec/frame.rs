@@ -96,14 +96,53 @@ impl OpCode {
     }
 }
 
-
-
 #[derive(PartialEq, Debug, Clone)]
 pub struct Header {
     pub version: ProtocolVersion,
+
+    /// Flags applying to this frame. The flags have the following meaning (described
+    /// by the mask that allow to select them):
+    /// 0x01: Compression flag. If set, the frame body is compressed. The actual
+    /// compression to use should have been set up beforehand through the
+    /// Startup message (which thus cannot be compressed; Section 4.1.1).
+    /// 0x02: Tracing flag. For a request frame, this indicate the client requires
+    /// tracing of the request. Note that not all requests support tracing.
+    /// Currently, only QUERY, PREPARE and EXECUTE queries support tracing.
+    /// Other requests will simply ignore the tracing flag if set. If a
+    /// request support tracing and the tracing flag was set, the response to
+    /// this request will have the tracing flag set and contain tracing
+    /// information.
+    /// If a response frame has the tracing flag set, its body contains
+    /// a tracing ID. The tracing ID is a [uuid] and is the first thing in
+    /// the frame body. The rest of the body will then be the usual body
+    /// corresponding to the response opcode.
+    /// The rest of the flags is currently unused and ignored.
     pub flags: u8,
+    /// A frame has a stream id (a [short] value). When sending request messages, this
+    /// stream id must be set by the client to a non-negative value (negative stream id
+    /// are reserved for streams initiated by the server; currently all EVENT messages
+    /// (section 4.2.6) have a streamId of -1). If a client sends a request message
+    /// with the stream id X, it is guaranteed that the stream id of the response to
+    /// that message will be X.
+
+    /// This allow to deal with the asynchronous nature of the protocol. If a client
+    /// sends multiple messages simultaneously (without waiting for responses), there
+    /// is no guarantee on the order of the responses. For instance, if the client
+    /// writes REQ_1, REQ_2, REQ_3 on the wire (in that order), the server might
+    /// respond to REQ_3 (or REQ_2) first. Assigning different stream id to these 3
+    /// requests allows the client to distinguish to which request an received answer
+    /// respond to. As there can only be 32768 different simultaneous streams, it is up
+    /// to the client to reuse stream id.
+
+    /// Note that clients are free to use the protocol synchronously (i.e. wait for
+    /// the response to REQ_N before sending REQ_N+1). In that case, the stream id
+    /// can be safely set to 0. Clients should also feel free to use only a subset of
+    /// the 32768 maximum possible stream ids if it is simpler for those
+    /// implementation.
     pub stream_id: u16,
     pub op_code: OpCode,
+    /// A 4 byte integer representing the length of the body of the frame (note:
+    /// currently a frame is limited to 256MB in length).
     pub length: u32,
 }
 
@@ -136,6 +175,24 @@ impl Header {
     }
 }
 
+/// The version is a single byte that indicate both the direction of the message
+/// (request or response) and the version of the protocol in use. The up-most bit
+/// of version is used to define the direction of the message: 0 indicates a
+/// request, 1 indicates a responses. This can be useful for protocol analyzers to
+/// distinguish the nature of the packet from the direction which it is moving.
+/// The rest of that byte is the protocol version (3 for the protocol defined in
+/// this document). In other words, for this version of the protocol, version will
+/// have one of:
+/// 0x03    Request frame for this protocol version
+/// 0x83    Response frame for this protocol version
+///
+/// Please note that the while every message ship with the version, only one version
+/// of messages is accepted on a given connection. In other words, the first message
+/// exchanged (STARTUP) sets the version for the connection for the lifetime of this
+/// connection.
+/// This document describe the version 3 of the protocol. For the changes made since
+/// version 2, see Section 10.
+// TODO: parse request, response
 #[derive(PartialEq, Debug, Clone)]
 pub enum ProtocolVersion {
     Version3,
