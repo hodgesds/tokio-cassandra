@@ -34,7 +34,6 @@
 //!  protocol with optional features without needing to change the protocol
 //!  version.
 use byteorder::{BigEndian, ReadBytesExt, ByteOrder};
-use std::io;
 const HEADER_LENGTH: usize = 9;
 
 error_chain! {
@@ -211,9 +210,7 @@ impl Header {
         self.flags & 0x02 == 0x02
     }
 
-    pub fn encode<W>(&self, f: &mut W) -> Result<usize>
-        where W: io::Write
-    {
+    pub fn encode(&self) -> Result<[u8; 9]> {
         let version = match self.version {
             ProtocolVersion::Version3(Direction::Request) => 0x03,
             ProtocolVersion::Version3(Direction::Response) => 0x83,
@@ -231,8 +228,7 @@ impl Header {
             let length = &mut buf[5..];
             BigEndian::write_u32(length, self.length);
         }
-        f.write(&buf)?;
-        Ok(buf.len())
+        Ok(buf)
     }
 }
 
@@ -290,10 +286,8 @@ mod test {
             length: 261,
         };
         let expected_bytes = b"\x03\x00\x01\x01\x05\x00\x00\x01\x05";
-        let mut buf = Vec::new();
-        let len = h.encode(&mut buf).unwrap();
+        let buf = h.encode().unwrap();
 
-        assert_eq!(len, 9);
         assert_eq!(&buf[..], &expected_bytes[..]);
     }
 
