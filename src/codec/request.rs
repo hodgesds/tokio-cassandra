@@ -42,7 +42,15 @@ impl CqlEncode for OptionsRequest {
     }
 }
 
-pub fn cql_encode<E>(to_encode: E, body_buf: &mut Vec<u8>) -> Result<([u8; 9])>
+pub struct EncodeOptions {
+    pub flags: u8,
+    pub stream_id: u16,
+}
+
+pub fn cql_encode<E>(options: EncodeOptions,
+                     to_encode: E,
+                     body_buf: &mut Vec<u8>)
+                     -> Result<([u8; 9])>
     where E: Request + CqlEncode
 {
     let len = to_encode.encode(body_buf)?;
@@ -53,8 +61,8 @@ pub fn cql_encode<E>(to_encode: E, body_buf: &mut Vec<u8>) -> Result<([u8; 9])>
 
     let header = Header {
         version: E::protocol_version(),
-        flags: 0x00, // TODO dont hardcode
-        stream_id: 270,
+        flags: options.flags,
+        stream_id: options.stream_id,
         op_code: E::opcode(),
         length: len,
     };
@@ -72,7 +80,11 @@ mod test {
     fn from_options_request() {
         let o = OptionsRequest;
         let mut buf = Vec::new();
-        let header_bytes = cql_encode(o, &mut buf).unwrap();
+        let options = EncodeOptions {
+            flags: 0,
+            stream_id: 270,
+        };
+        let header_bytes = cql_encode(options, o, &mut buf).unwrap();
 
         let expected_bytes = b"\x03\x00\x01\x0e\x05\x00\x00\x00\x00";
 
