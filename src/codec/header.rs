@@ -219,17 +219,20 @@ impl Header {
             ProtocolVersion::Version3(Direction::Response) => 0x83,
         };
 
-        let mut stream_id = [0; 2];
-        BigEndian::write_u16(&mut stream_id, self.stream_id);
-
-        let mut length = [0; 4];
-        BigEndian::write_u32(&mut length, self.length);
-
-        f.write(&[version, self.flags])?;
-        f.write(&stream_id)?;
-        f.write(&[self.op_code.to_u8()])?;
-        f.write(&length)?;
-        Ok(9)
+        let mut buf = [0; 9];
+        buf[0] = version;
+        buf[1] = self.flags;
+        {
+            let stream_id = &mut buf[2..4];
+            BigEndian::write_u16(stream_id, self.stream_id);
+        }
+        buf[4] = self.op_code.to_u8();
+        {
+            let length = &mut buf[5..];
+            BigEndian::write_u32(length, self.length);
+        }
+        f.write(&buf)?;
+        Ok(buf.len())
     }
 }
 

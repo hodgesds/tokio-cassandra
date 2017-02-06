@@ -6,6 +6,14 @@ error_chain! {
         Io(::std::io::Error);
         HeaderError(::codec::header::Error);
     }
+    errors {
+        BodyLengthExceeded(len: usize) {
+            description("The length of the body exceeded the \
+            maximum length specified by the protocol")
+            display("The current body length {} exceeded the \
+            maximum allowed length for a body", len)
+        }
+    }
 }
 
 pub trait CqlProtoEncode<W> {
@@ -34,23 +42,28 @@ impl<W> CqlProtoEncode<W> for OptionsRequest
 pub struct CqlEncoder;
 
 impl CqlEncoder {
-    pub fn encode<E, W>(&self, to_encode: E, to_write_to: &mut W) -> Result<usize>
-        where E: CqlProtoEncode<Vec<u8>>,
+    pub fn encode<E, W, W2>(&self, to_encode: E, to_write_to: &mut W) -> Result<usize>
+        where E: CqlProtoEncode<W2>,
+              W2: io::Write + Default + AsRef<[u8]>,
               W: io::Write
     {
-        let mut body: Vec<u8> = Vec::new();
-        to_encode.encode(&mut body)?;
+        let mut body = W2::default();
+        let len = to_encode.encode(&mut body)?;
+        if len > u32::max_value() as usize {
+            return Err(ErrorKind::BodyLengthExceeded(len).into());
+        }
+        let len = len as u32;
 
         let header = Header {
             version: E::protocol_version(),
             flags: 0x00,
             stream_id: 270,
             op_code: E::opcode(),
-            length: body.len() as u32, // PROBLEM?
+            length: len,
         };
 
         header.encode(to_write_to)?;
-        to_write_to.write(&body)?;
+        to_write_to.write(&body.as_ref())?;
 
         Ok(9)
     }
@@ -66,7 +79,7 @@ mod test {
         let o = OptionsRequest;
         let e = CqlEncoder;
         let mut buf = Vec::new();
-        let len = e.encode(o, &mut buf).unwrap();
+        let len = e.encode::<_, _, Vec<_>>(o, &mut buf).unwrap();
 
         let expected_bytes = b"\x03\x00\x01\x0e\x05\x00\x00\x00\x00";
 
