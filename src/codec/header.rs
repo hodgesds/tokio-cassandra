@@ -33,7 +33,8 @@
 //!  body in such cases. The reason is that this may allow to sometimes extend the
 //!  protocol with optional features without needing to change the protocol
 //!  version.
-use byteorder::{BigEndian, ReadBytesExt};
+use byteorder::{BigEndian, ReadBytesExt, ByteOrder};
+use std::io;
 const HEADER_LENGTH: usize = 9;
 
 error_chain! {
@@ -50,6 +51,9 @@ error_chain! {
             description("Could not parse value as opcode.")
             display("Value {} is not a valid opcode", c)
         }
+}
+    foreign_links {
+        Io(::std::io::Error);
     }
 }
 
@@ -103,6 +107,27 @@ impl OpCode {
             0x10 => OpCode::AuthSuccess,
             _ => return Err(ErrorKind::InvalidOpCode(b).into()),
         })
+    }
+
+    pub fn to_u8(&self) -> u8 {
+        match *self {
+            OpCode::Error => 0x00,
+            OpCode::Startup => 0x01,
+            OpCode::Ready => 0x02,
+            OpCode::Authenticate => 0x03,
+            OpCode::Options => 0x05,
+            OpCode::Supported => 0x06,
+            OpCode::Query => 0x07,
+            OpCode::Result => 0x08,
+            OpCode::Prepare => 0x09,
+            OpCode::Execute => 0x0A,
+            OpCode::Register => 0x0B,
+            OpCode::Event => 0x0C,
+            OpCode::Batch => 0x0D,
+            OpCode::AuthChallenge => 0x0E,
+            OpCode::AuthResponse => 0x0F,
+            OpCode::AuthSuccess => 0x10,
+        }
     }
 }
 
@@ -185,6 +210,27 @@ impl Header {
     pub fn is_traced(&self) -> bool {
         self.flags & 0x02 == 0x02
     }
+
+    pub fn encode<W>(&self, f: &mut W) -> Result<usize>
+        where W: io::Write
+    {
+        let version = match self.version {
+            ProtocolVersion::Version3(Direction::Request) => 0x03,
+            ProtocolVersion::Version3(Direction::Response) => 0x83,
+        };
+
+        let mut stream_id = [0; 2];
+        BigEndian::write_u16(&mut stream_id, self.stream_id);
+
+        let mut length = [0; 4];
+        BigEndian::write_u32(&mut length, self.length);
+
+        f.write(&[version, self.flags])?;
+        f.write(&stream_id)?;
+        f.write(&[self.op_code.to_u8()])?;
+        f.write(&length)?;
+        Ok(9)
+    }
 }
 
 /// The version is a single byte that indicate both the direction of the message
@@ -219,7 +265,7 @@ mod test {
     use super::*;
 
     #[test]
-    fn complete() {
+    fn complete_decode() {
         let bytes = b"\x03\x00\x01\x01\x05\x00\x00\x01\x05";
         let h = Header::try_from(&bytes[..]).unwrap();
 
@@ -229,6 +275,23 @@ mod test {
         assert_eq!(h.stream_id, 257);
         assert_eq!(h.op_code, OpCode::Options);
         assert_eq!(h.length, 261);
+    }
+
+    #[test]
+    fn complete_encode() {
+        let h = Header {
+            version: ProtocolVersion::Version3(Direction::Request),
+            flags: 0x00,
+            stream_id: 257,
+            op_code: OpCode::Options,
+            length: 261,
+        };
+        let expected_bytes = b"\x03\x00\x01\x01\x05\x00\x00\x01\x05";
+        let mut buf = Vec::new();
+        let len = h.encode(&mut buf).unwrap();
+
+        assert_eq!(len, 9);
+        assert_eq!(&buf[..], &expected_bytes[..]);
     }
 
     #[test]
