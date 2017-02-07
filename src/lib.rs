@@ -14,4 +14,4 @@ extern crate tokio_proto;
 
 
 pub mod codec;
-pub mod cqlcodec;
+pub mod adapter;
