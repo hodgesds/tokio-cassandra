@@ -23,6 +23,9 @@ version = "0.9"
 optional = true
 version = "0.9"
 
+[dev-dependencies]
+nom-test-helpers = "2.0.0"
+
 [features]
 default_features = []
 with-serde = ["serde_derive", "serde"]

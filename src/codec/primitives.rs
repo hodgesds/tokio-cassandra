@@ -16,7 +16,7 @@ pub mod decode {
             let expected = 342;
             BigEndian::write_u16(&mut buf[..], expected);
 
-            assert_eq!(expected, decode::short(&buf).unwrap().1);
+            assert_finished_and_eq!(decode::short(&buf), expected);
         }
     }
 }
