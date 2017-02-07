@@ -19,62 +19,54 @@ pub trait CqlEncode {
     fn encode(&self, f: &mut Vec<u8>) -> Result<usize>;
 }
 
-pub trait Request {
-    fn opcode() -> OpCode;
-    fn protocol_version() -> ProtocolVersion;
+pub enum Request {
+    Options,
 }
 
-pub enum RequestBody {
-    Option(OptionsRequest),
-}
+impl Request {
+    fn opcode(&self) -> OpCode {
+        use self::Request::*;
+        match self {
+            &Options => OpCode::Options,
+        }
 
-pub struct OptionsRequest;
-
-impl Request for OptionsRequest {
-    fn opcode() -> OpCode {
-        OpCode::Options
     }
-
     fn protocol_version() -> ProtocolVersion {
         ProtocolVersion::Version3(Direction::Request)
     }
 }
 
-impl CqlEncode for RequestBody {
+
+impl CqlEncode for Request {
     fn encode(&self, _: &mut Vec<u8>) -> Result<usize> {
         match *self {
-            RequestBody::Option(ref req) => Ok(0),
+            Request::Options => Ok(0),
         }
     }
 }
 
-pub struct EncodeOptions {
-    pub flags: u8,
-    pub stream_id: u16,
-}
 
-pub fn cql_encode<E>(options: EncodeOptions,
-                     to_encode: E,
-                     body_buf: &mut Vec<u8>)
-                     -> Result<([u8; 9])>
-    where E: Request + CqlEncode
-{
-    let len = to_encode.encode(body_buf)?;
+pub fn cql_encode(flags: u8, stream_id: u16, to_encode: Request, sink: &mut Vec<u8>) -> Result<()> {
+    sink.resize(Header::encoded_len(), 0);
+
+    let len = to_encode.encode(sink)?;
     if len > u32::max_value() as usize {
         return Err(ErrorKind::BodyLengthExceeded(len).into());
     }
     let len = len as u32;
 
     let header = Header {
-        version: E::protocol_version(),
-        flags: options.flags,
-        stream_id: options.stream_id,
-        op_code: E::opcode(),
+        version: Request::protocol_version(),
+        flags: flags,
+        stream_id: stream_id,
+        op_code: to_encode.opcode(),
         length: len,
     };
 
     let header_bytes = header.encode()?;
-    Ok(header_bytes)
+    sink[0..Header::encoded_len()].copy_from_slice(&header_bytes);
+
+    Ok(())
 }
 
 
@@ -82,21 +74,17 @@ pub fn cql_encode<E>(options: EncodeOptions,
 mod test {
     use super::*;
 
-    // #[test]
-    // fn from_options_request() {
-    //     let o = OptionsRequest;
-    //     let o = RequestBody::Option(o);
+    #[test]
+    fn from_options_request() {
+        let o = Request::Options;
 
-    //     let mut buf = Vec::new();
-    //     let options = EncodeOptions {
-    //         flags: 0,
-    //         stream_id: 270,
-    //     };
-    //     let header_bytes = cql_encode(options, o, &mut buf).unwrap();
+        let mut buf = Vec::new();
+        let flags = 0;
+        let stream_id = 270;
+        cql_encode(flags, stream_id, o, &mut buf).unwrap();
 
-    //     let expected_bytes = b"\x03\x00\x01\x0e\x05\x00\x00\x00\x00";
+        let expected_bytes = b"\x03\x00\x01\x0e\x05\x00\x00\x00\x00";
 
-    //     assert_eq!(buf.len(), 0);
-    //     assert_eq!(&header_bytes[..], &expected_bytes[..]);
-    // }
+        assert_eq!(&buf[..], &expected_bytes[..]);
+    }
 }

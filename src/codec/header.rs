@@ -230,6 +230,10 @@ impl Header {
         }
         Ok(buf)
     }
+
+    pub fn encoded_len() -> usize {
+        9
+    }
 }
 
 /// The version is a single byte that indicate both the direction of the message

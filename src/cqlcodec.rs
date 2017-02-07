@@ -1,7 +1,6 @@
 
 
-use codec::request::{RequestBody, OptionsRequest, CqlEncode, Request};
-use codec::header::{ProtocolVersion, Direction, Header, OpCode};
+use codec::request::{Request, cql_encode};
 
 use tokio_proto::streaming::multiplex::RequestId;
 use tokio_core::io::{EasyBuf, Codec};
@@ -16,7 +15,7 @@ error_chain! {
 struct CqlCodecV3;
 impl Codec for CqlCodecV3 {
     type In = (RequestId, String);
-    type Out = (RequestId, RequestBody);
+    type Out = (RequestId, Request);
 
     fn decode(&mut self, buf: &mut EasyBuf) -> io::Result<Option<(RequestId, String)>> {
         // // At least 5 bytes are required for a frame: 4 byte
@@ -51,65 +50,22 @@ impl Codec for CqlCodecV3 {
         Ok(None)
     }
 
-    fn encode(&mut self, msg: (RequestId, RequestBody), buf: &mut Vec<u8>) -> io::Result<()> {
-        let (id, msg) = msg;
+    fn encode(&mut self, msg: (RequestId, Request), buf: &mut Vec<u8>) -> io::Result<()> {
+        let (id, req) = msg;
 
-        let mut body_buf = Vec::new();
-        let len = msg.encode(&mut body_buf)
-            .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
-        // if len > u32::max_value() as usize {
-        //     return Err(ErrorKind::BodyLengthExceeded(len).into());
-        // }
-
-        let len = len as u32;
-
-
-        let header = Header {
-            // version: match msg {
-            //     Option => OptionsRequest::protocol_version(),
-            //     _ => ,
-            // },
-            version: ProtocolVersion::Version3(Direction::Request),
-            // flags: options.flags,
-            flags: 0x00,
-            stream_id: id as u16, // quick impl -> TODO: Problem!!
-            op_code: match msg {
-                Option => OpCode::Options,
-            },
-            length: len,
-        };
-
-        let header_bytes = header.encode()
-            .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
-
-        buf.extend(&header_bytes[..]);
-        buf.extend(body_buf);
-        Ok(())
+        cql_encode(0x00, /* FIXME real flags */
+                   id as u16, /* FIXME safe cast */
+                   req,
+                   buf)
+            .map_err(|err| io::Error::new(io::ErrorKind::Other, err))
     }
 }
 
-#[cfg(test)]
-mod test {
-    use super::*;
-    use codec::request::*;
-
-    #[test]
-    fn from_options_request() {
-        let o = OptionsRequest;
-        let o = RequestBody::Option(o);
-
-        let mut buf = Vec::new();
-        // let options = EncodeOptions {
-        //     flags: 0,
-        //     stream_id: 270,
-        // };
-        let mut codec = CqlCodecV3;
-        codec.encode((270, o), &mut buf).unwrap();
-
-
-        let expected_bytes = b"\x03\x00\x01\x0e\x05\x00\x00\x00\x00";
-
-        assert_eq!(buf.len(), 9);
-        assert_eq!(&buf[..], &expected_bytes[..]);
-    }
-}
+//#[cfg(test)]
+//mod test {
+//    #[test]
+//    fn decode_supported() {
+//        let frame = include_bytes!("../tests/fixtures/v3/srv_supported.msg");
+//        //        let r = Response::decode(&frame);
+//    }
+//}
