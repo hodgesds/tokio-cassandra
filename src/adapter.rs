@@ -1,6 +1,7 @@
 
 
 use codec::request::{self, cql_encode};
+use codec::header::Header;
 
 use tokio_proto::streaming::multiplex::RequestId;
 use tokio_core::io::{EasyBuf, Codec};
@@ -12,7 +13,12 @@ impl Codec for CqlCodecV3 {
     type Out = (RequestId, request::Message);
 
     fn decode(&mut self, _buf: &mut EasyBuf) -> io::Result<Option<(RequestId, String)>> {
-        // TODO
+        if _buf.len() < Header::encoded_len() {
+            return Ok(None);
+        }
+
+        // TODO: implement body parsing
+
         Ok(None)
     }
 
