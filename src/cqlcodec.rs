@@ -1,14 +1,24 @@
+
+
+use codec::request::{RequestBody, OptionsRequest, CqlEncode, Request};
+use codec::header::{ProtocolVersion, Direction, Header, OpCode};
+
+use tokio_proto::streaming::multiplex::RequestId;
+use tokio_core::io::{EasyBuf, Codec};
+use std::io;
+
+error_chain! {
+    foreign_links {
+        Io(::std::io::Error);
+    }
+}
+
 struct CqlCodecV3;
-
-
-
 impl Codec for CqlCodecV3 {
     type In = (RequestId, String);
-    type Out = (RequestId, String);
+    type Out = (RequestId, RequestBody);
 
-    fn decode(&mut self, buf: &mut EasyBuf)
-             -> Result<Option<(RequestId, String)>, io::Error>
-    {
+    fn decode(&mut self, buf: &mut EasyBuf) -> io::Result<Option<(RequestId, String)>> {
         // // At least 5 bytes are required for a frame: 4 byte
         // // head + one byte '\n'
         // if buf.len() < 5 {
@@ -41,18 +51,65 @@ impl Codec for CqlCodecV3 {
         Ok(None)
     }
 
-    fn encode(&mut self, msg: (RequestId, String),
-              buf: &mut Vec<u8>) -> io::Result<()>
-    {
-        // let (id, msg) = msg;
+    fn encode(&mut self, msg: (RequestId, RequestBody), buf: &mut Vec<u8>) -> io::Result<()> {
+        let (id, msg) = msg;
 
-        // let mut encoded_id = [0; 4];
-        // BigEndian::write_u32(&mut encoded_id, id as u32);
+        let mut body_buf = Vec::new();
+        let len = msg.encode(&mut body_buf)
+            .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
+        // if len > u32::max_value() as usize {
+        //     return Err(ErrorKind::BodyLengthExceeded(len).into());
+        // }
 
-        // buf.extend(&encoded_id);
-        // buf.extend(msg.as_bytes());
-        // buf.push(b'\n');
+        let len = len as u32;
 
+
+        let header = Header {
+            // version: match msg {
+            //     Option => OptionsRequest::protocol_version(),
+            //     _ => ,
+            // },
+            version: ProtocolVersion::Version3(Direction::Request),
+            // flags: options.flags,
+            flags: 0x00,
+            stream_id: id as u16, // quick impl -> TODO: Problem!!
+            op_code: match msg {
+                Option => OpCode::Options,
+            },
+            length: len,
+        };
+
+        let header_bytes = header.encode()
+            .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
+
+        buf.extend(&header_bytes[..]);
+        buf.extend(body_buf);
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use codec::request::*;
+
+    #[test]
+    fn from_options_request() {
+        let o = OptionsRequest;
+        let o = RequestBody::Option(o);
+
+        let mut buf = Vec::new();
+        // let options = EncodeOptions {
+        //     flags: 0,
+        //     stream_id: 270,
+        // };
+        let mut codec = CqlCodecV3;
+        codec.encode((270, o), &mut buf).unwrap();
+
+
+        let expected_bytes = b"\x03\x00\x01\x0e\x05\x00\x00\x00\x00";
+
+        assert_eq!(buf.len(), 9);
+        assert_eq!(&buf[..], &expected_bytes[..]);
     }
 }

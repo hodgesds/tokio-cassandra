@@ -9,5 +9,9 @@ extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 
+extern crate tokio_core;
+extern crate tokio_proto;
+
 
 pub mod codec;
+pub mod cqlcodec;
