@@ -5,6 +5,9 @@ pub mod decode {
         be_u16(b)
     }
 
+    named!(string(u8) -> &str, take_str!(take!(u16!())));
+
+
     #[cfg(test)]
     mod test {
         use byteorder::{ByteOrder, BigEndian};
@@ -17,6 +20,19 @@ pub mod decode {
             BigEndian::write_u16(&mut buf[..], expected);
 
             assert_finished_and_eq!(decode::short(&buf), expected);
+        }
+
+        #[test]
+        fn string() {
+            let s = "Hello üß";
+            let mut len = [0u8; 2];
+            BigEndian::write_u16(&mut len[..], s.len() as u16);
+
+            let buf = Vec::new();
+            buf.extend(len);
+            buf.extend(s.as_bytes());
+
+            assert_finished_and_eq!(decode::string(&buf), s);
         }
     }
 }
