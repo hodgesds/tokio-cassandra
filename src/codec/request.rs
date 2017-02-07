@@ -19,13 +19,13 @@ pub trait CqlEncode {
     fn encode(&self, f: &mut Vec<u8>) -> Result<usize>;
 }
 
-pub enum Request {
+pub enum Message {
     Options,
 }
 
-impl Request {
+impl Message {
     fn opcode(&self) -> OpCode {
-        use self::Request::*;
+        use self::Message::*;
         match self {
             &Options => OpCode::Options,
         }
@@ -37,16 +37,16 @@ impl Request {
 }
 
 
-impl CqlEncode for Request {
+impl CqlEncode for Message {
     fn encode(&self, _: &mut Vec<u8>) -> Result<usize> {
         match *self {
-            Request::Options => Ok(0),
+            Message::Options => Ok(0),
         }
     }
 }
 
 
-pub fn cql_encode(flags: u8, stream_id: u16, to_encode: Request, sink: &mut Vec<u8>) -> Result<()> {
+pub fn cql_encode(flags: u8, stream_id: u16, to_encode: Message, sink: &mut Vec<u8>) -> Result<()> {
     sink.resize(Header::encoded_len(), 0);
 
     let len = to_encode.encode(sink)?;
@@ -56,7 +56,7 @@ pub fn cql_encode(flags: u8, stream_id: u16, to_encode: Request, sink: &mut Vec<
     let len = len as u32;
 
     let header = Header {
-        version: Request::protocol_version(),
+        version: Message::protocol_version(),
         flags: flags,
         stream_id: stream_id,
         op_code: to_encode.opcode(),
@@ -76,7 +76,7 @@ mod test {
 
     #[test]
     fn from_options_request() {
-        let o = Request::Options;
+        let o = Message::Options;
 
         let mut buf = Vec::new();
         let flags = 0;

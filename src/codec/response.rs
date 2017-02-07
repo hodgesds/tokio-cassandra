@@ -1,3 +1,5 @@
+use codec::header::Header;
+
 error_chain! {
     foreign_links {
         Io(::std::io::Error);
@@ -5,15 +7,44 @@ error_chain! {
     }
 }
 
-enum Body {
-    Supported(SupportedBody)
+#[derive(Debug, PartialEq)]
+pub struct SupportedMessage;
+
+#[derive(Debug, PartialEq)]
+pub enum Message {
+    Supported(SupportedMessage),
 }
 
-struct Response {
+#[derive(Debug, PartialEq)]
+struct Frame {
     header: Header,
-    body: Body
+    body: Message,
 }
 
-pub trait CqlDecode {
-    fn decode(&self, f: &[u8]) -> Result<Response>;
+impl CqlDecode<SupportedMessage> for SupportedMessage {
+    fn decode(_buf: &[u8]) -> Result<Self> {
+        unimplemented!()
+    }
+}
+
+pub trait CqlDecode<T> {
+    fn decode(buf: &[u8]) -> Result<T>;
+}
+
+
+#[cfg(test)]
+mod test {
+    use codec::header::Header;
+    use super::*;
+
+    fn skip_header(b: &[u8]) -> &[u8] {
+        &b[..Header::encoded_len()]
+    }
+
+    #[test]
+    fn decode_supported_message() {
+        let msg = include_bytes!("../../tests/fixtures/v3/responses/supported.msg");
+        let res = SupportedMessage::decode(skip_header(&msg[..])).unwrap();
+        assert_eq!(res, SupportedMessage);
+    }
 }
