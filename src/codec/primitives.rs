@@ -3,8 +3,8 @@ use std::borrow::Cow;
 error_chain! {
      errors {
         MaximumLengthExceeded(l: usize) {
-          description("Too many characters in string")
-          display("Expected not more than {} characters, got {}.", u16::max_value(), l)
+          description("Too many elements container")
+          display("Expected not more than {} elements, got {}.", u16::max_value(), l)
         }
     }
  }
@@ -41,6 +41,33 @@ impl<'a> AsRef<str> for CqlString<'a> {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct CqlStringList<'a> {
+    container: Vec<CqlString<'a>>,
+}
+
+impl<'a> CqlStringList<'a> {
+    pub fn try_from(lst: Vec<CqlString<'a>>) -> Result<CqlStringList<'a>> {
+        match lst.len() > u16::max_value() as usize {
+            true => Err(ErrorKind::MaximumLengthExceeded(lst.len()).into()),
+            false => Ok(CqlStringList { container: lst }),
+        }
+    }
+
+    //    pub unsafe fn unchecked_from(s: &'a str) -> CqlString<'a> {
+    //        CqlString { inner: Cow::Borrowed(s) }
+    //    }
+
+    pub fn len(&self) -> u16 {
+        self.container.len() as u16
+    }
+
+    pub fn iter(&'a self) -> ::std::slice::Iter<'a, CqlString<'a>> {
+        self.container.iter()
+    }
+}
+
+
 pub mod decode {
     use super::CqlString;
     use nom::be_u16;
@@ -56,7 +83,7 @@ pub mod decode {
 
 pub mod encode {
     use byteorder::{ByteOrder, BigEndian};
-    use super::CqlString;
+    use super::{CqlStringList, CqlString};
 
     pub fn short(v: u16) -> [u8; 2] {
         let mut bytes = [0u8; 2];
@@ -69,9 +96,9 @@ pub mod encode {
         buf.extend(s.as_bytes());
     }
 
-    pub fn string_list(l: &[CqlString], buf: &mut Vec<u8>) {
-        buf.extend(&short(l.len() as u16 /*TODO strlist*/)[..]);
-        for s in l {
+    pub fn string_list(l: &CqlStringList, buf: &mut Vec<u8>) {
+        buf.extend(&short(l.len())[..]);
+        for s in l.iter() {
             string(s, buf);
         }
     }
@@ -79,7 +106,7 @@ pub mod encode {
 
 #[cfg(test)]
 mod test {
-    use super::{encode, decode, CqlString};
+    use super::{encode, decode, CqlString, CqlStringList};
 
     #[test]
     fn short() {
@@ -105,6 +132,7 @@ mod test {
             .map(|&s| CqlString::try_from(s))
             .map(Result::unwrap)
             .collect();
+        let sl = CqlStringList::try_from(sl).unwrap();
 
         let mut buf = Vec::new();
         encode::string_list(&sl, &mut buf);
