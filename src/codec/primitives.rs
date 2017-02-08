@@ -54,9 +54,9 @@ impl<'a> CqlStringList<'a> {
         }
     }
 
-    //    pub unsafe fn unchecked_from(s: &'a str) -> CqlString<'a> {
-    //        CqlString { inner: Cow::Borrowed(s) }
-    //    }
+    pub unsafe fn unchecked_from(lst: Vec<CqlString<'a>>) -> CqlStringList<'a> {
+        CqlStringList { container: lst }
+    }
 
     pub fn len(&self) -> u16 {
         self.container.len() as u16
@@ -69,7 +69,7 @@ impl<'a> CqlStringList<'a> {
 
 
 pub mod decode {
-    use super::CqlString;
+    use super::{CqlStringList, CqlString};
     use nom::be_u16;
 
     named!(pub short(&[u8]) -> u16, call!(be_u16));
@@ -77,7 +77,13 @@ pub mod decode {
             s: short          >>
             str: take_str!(s) >>
             (unsafe { CqlString::unchecked_from(str) })
-            )
+        )
+    );
+    named!(pub string_list(&[u8]) -> CqlStringList, do_parse!(
+            l: short >>
+            list: count!(string, l as usize) >>
+            (unsafe { CqlStringList::unchecked_from(list) })
+        )
     );
 }
 
@@ -136,6 +142,6 @@ mod test {
 
         let mut buf = Vec::new();
         encode::string_list(&sl, &mut buf);
-        assert_eq!(&buf, b"\x00\x02\x00\x01a\x00\x01b");
+        assert_finished_and_eq!(decode::string_list(&buf), sl);
     }
 }
