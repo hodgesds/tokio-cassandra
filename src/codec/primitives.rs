@@ -212,6 +212,7 @@ mod test {
         assert_finished_and_eq!(decode::string_list(&buf), sl);
     }
 
+    // TODO: make this into a From<_> implementation
     fn cql_vec<'a>(v: &[&'a str]) -> Vec<CqlString<'a>> {
         Vec::from(v)
             .iter()
