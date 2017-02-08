@@ -1,4 +1,6 @@
 use std::borrow::Cow;
+use std::collections::HashMap;
+use std::hash::{Hasher, Hash};
 
 error_chain! {
      errors {
@@ -41,6 +43,14 @@ impl<'a> AsRef<str> for CqlString<'a> {
     }
 }
 
+impl<'a> Hash for CqlString<'a> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.inner.hash(state)
+    }
+}
+
+/// TODO: zero copy - implement it as offset to beginning of vec to CqlStrings to prevent Vec
+/// allocation
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct CqlStringList<'a> {
     container: Vec<CqlString<'a>>,
@@ -67,10 +77,39 @@ impl<'a> CqlStringList<'a> {
     }
 }
 
+#[derive(Debug, PartialEq, Eq, Clone)]
+pub struct CqlStringMultiMap<'a> {
+    container: HashMap<CqlString<'a>, CqlStringList<'a>>,
+}
+
+impl<'a> CqlStringMultiMap<'a> {
+    pub fn try_from(map: HashMap<CqlString<'a>, CqlStringList<'a>>)
+                    -> Result<CqlStringMultiMap<'a>> {
+        match map.len() > u16::max_value() as usize {
+            true => Err(ErrorKind::MaximumLengthExceeded(map.len()).into()),
+            false => Ok(CqlStringMultiMap { container: map }),
+        }
+    }
+
+    pub unsafe fn unchecked_from(lst: HashMap<CqlString<'a>, CqlStringList<'a>>)
+                                 -> CqlStringMultiMap<'a> {
+        CqlStringMultiMap { container: lst }
+    }
+
+    pub fn len(&self) -> u16 {
+        self.container.len() as u16
+    }
+
+    pub fn iter(&'a self)
+                -> ::std::collections::hash_map::Iter<'a, CqlString<'a>, CqlStringList<'a>> {
+        self.container.iter()
+    }
+}
 
 pub mod decode {
-    use super::{CqlStringList, CqlString};
+    use super::{CqlStringList, CqlString, CqlStringMultiMap};
     use nom::be_u16;
+    use std::collections::HashMap;
 
     named!(pub short(&[u8]) -> u16, call!(be_u16));
     named!(pub string(&[u8]) -> CqlString, do_parse!(
@@ -85,11 +124,30 @@ pub mod decode {
             (unsafe { CqlStringList::unchecked_from(list) })
         )
     );
+    named!(pub string_multimap(&[u8]) -> CqlStringMultiMap,
+        do_parse!(
+            l: short >>
+            mm: fold_many_m_n!(l as usize, l as usize,
+                do_parse!(
+                    key: string >>
+                    value: string_list >>
+                    (key, value)
+                ),
+                HashMap::new(),
+                | mut map: HashMap<_,_>, (k, v) | {
+                    map.insert(k, v);
+                    map
+                }
+            )
+             >>
+            (unsafe { CqlStringMultiMap::unchecked_from(mm) })
+        )
+    );
 }
 
 pub mod encode {
     use byteorder::{ByteOrder, BigEndian};
-    use super::{CqlStringList, CqlString};
+    use super::{CqlStringList, CqlString, CqlStringMultiMap};
 
     pub fn short(v: u16) -> [u8; 2] {
         let mut bytes = [0u8; 2];
@@ -108,11 +166,20 @@ pub mod encode {
             string(s, buf);
         }
     }
+
+    pub fn string_multimap(m: &CqlStringMultiMap, buf: &mut Vec<u8>) {
+        buf.extend(&short(m.len())[..]);
+        for (k, lst) in m.iter() {
+            string(k, buf);
+            string_list(lst, buf);
+        }
+    }
 }
 
 #[cfg(test)]
 mod test {
-    use super::{encode, decode, CqlString, CqlStringList};
+    use super::{encode, decode, CqlString, CqlStringList, CqlStringMultiMap};
+    use std::collections::HashMap;
 
     #[test]
     fn short() {
@@ -143,5 +210,32 @@ mod test {
         let mut buf = Vec::new();
         encode::string_list(&sl, &mut buf);
         assert_finished_and_eq!(decode::string_list(&buf), sl);
+    }
+
+    fn cql_vec<'a>(v: &[&'a str]) -> Vec<CqlString<'a>> {
+        Vec::from(v)
+            .iter()
+            .map(|&s| CqlString::try_from(s))
+            .map(Result::unwrap)
+            .collect()
+    }
+
+    #[test]
+    fn string_multimap() {
+        let mut mm = HashMap::new();
+        let sl = cql_vec(&["a", "b"][..]);
+        let sl = CqlStringList::try_from(sl).unwrap();
+        mm.insert(CqlString::try_from("a").unwrap(), sl);
+
+        let sl = cql_vec(&["c", "d"][..]);
+        let sl = CqlStringList::try_from(sl).unwrap();
+        mm.insert(CqlString::try_from("b").unwrap(), sl);
+
+        let smm = CqlStringMultiMap::try_from(mm).unwrap();
+
+        let mut buf = Vec::new();
+        encode::string_multimap(&smm, &mut buf);
+
+        assert_finished_and_eq!(decode::string_multimap(&buf), smm);
     }
 }
