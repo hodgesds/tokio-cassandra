@@ -50,7 +50,7 @@ error_chain! {
             description("Could not parse value as opcode.")
             display("Value {} is not a valid opcode", c)
         }
-}
+    }
     foreign_links {
         Io(::std::io::Error);
     }

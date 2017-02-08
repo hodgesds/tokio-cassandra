@@ -1,11 +1,31 @@
 use std::borrow::Cow;
 
+error_chain! {
+     errors {
+        MaximumLengthExceeded(l: usize) {
+          description("Too many characters in string")
+          display("Expected not more than {} characters, got {}.", u16::max_value(), l)
+        }
+    }
+ }
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct CqlString<'a> {
     inner: Cow<'a, str>,
 }
 
 impl<'a> CqlString<'a> {
+    pub fn try_from(s: &'a str) -> Result<CqlString<'a>> {
+        match s.len() > u16::max_value() as usize {
+            true => Err(ErrorKind::MaximumLengthExceeded(s.len()).into()),
+            false => Ok(CqlString { inner: Cow::Borrowed(s) }),
+        }
+    }
+
+    pub unsafe fn unchecked_from(s: &'a str) -> CqlString<'a> {
+        CqlString { inner: Cow::Borrowed(s) }
+    }
+
     pub fn len(&self) -> u16 {
         self.inner.as_ref().len() as u16
     }
@@ -21,12 +41,6 @@ impl<'a> AsRef<str> for CqlString<'a> {
     }
 }
 
-impl<'a> From<&'a str> for CqlString<'a> {
-    fn from(s: &'a str) -> Self {
-        CqlString { inner: Cow::Borrowed(s) }
-    }
-}
-
 pub mod decode {
     use super::CqlString;
     use nom::be_u16;
@@ -35,7 +49,7 @@ pub mod decode {
     named!(pub string(&[u8]) -> CqlString, do_parse!(
             s: short          >>
             str: take_str!(s) >>
-            (CqlString::from(str))
+            (unsafe { CqlString::unchecked_from(str) })
             )
     );
 }
@@ -51,13 +65,16 @@ pub mod encode {
     }
 
     pub fn string(s: &CqlString, buf: &mut Vec<u8>) {
-        buf.extend(&short(s.len() as u16)[..]);
+        buf.extend(&short(s.len())[..]);
         buf.extend(s.as_bytes());
     }
 
-    //    pub fn string_list(l: &[&str], buf: &mut Vec<u8>) {
-    //        buf.extend(&short(s.len() as u16)[..]);
-    //    }
+    pub fn string_list(l: &[CqlString], buf: &mut Vec<u8>) {
+        buf.extend(&short(l.len() as u16 /*TODO strlist*/)[..]);
+        for s in l {
+            string(s, buf);
+        }
+    }
 }
 
 #[cfg(test)]
@@ -74,10 +91,23 @@ mod test {
 
     #[test]
     fn string() {
-        let s = CqlString::from("Hello üß");
+        let s = CqlString::try_from("Hello üß").unwrap();
         let mut buf = Vec::new();
         encode::string(&s, &mut buf);
 
         assert_finished_and_eq!(decode::string(&buf), s);
+    }
+
+    #[test]
+    fn string_list() {
+        let sl: Vec<_> = vec!["a", "b"]
+            .iter()
+            .map(|&s| CqlString::try_from(s))
+            .map(Result::unwrap)
+            .collect();
+
+        let mut buf = Vec::new();
+        encode::string_list(&sl, &mut buf);
+        assert_eq!(&buf, b"\x00\x02\x00\x01a\x00\x01b");
     }
 }
