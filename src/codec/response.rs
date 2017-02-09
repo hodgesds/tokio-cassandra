@@ -46,7 +46,7 @@ impl<'a> From<CqlStringMultiMap<'a>> for SupportedMessage<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct DecodeResult<T> {
     pub remaining_bytes: usize,
     pub decoded: T,
@@ -76,6 +76,7 @@ pub trait CqlDecode<'a, T> {
 mod test {
     use codec::header::Header;
     use super::*;
+    use codec::primitives::{CqlStringMultiMap, CqlString, CqlStringList};
 
     fn skip_header(b: &[u8]) -> &[u8] {
         &b[Header::encoded_len()..]
@@ -85,8 +86,21 @@ mod test {
     fn decode_supported_message() {
         let msg = include_bytes!("../../tests/fixtures/v3/responses/supported.msg");
         let res = SupportedMessage::decode(skip_header(&msg[..])).unwrap();
-        println!("res = {:?}", res);
 
-        // TODO: do actual asserts
+        let sla = ["3.2.1"];
+        let slb = ["snappy", "lz4"];
+        let csl1 = CqlStringList::try_from_iter(sla.iter().cloned()).unwrap();
+        let csl2 = CqlStringList::try_from_iter(slb.iter().cloned()).unwrap();
+        let smm =
+            CqlStringMultiMap::try_from_iter(vec![(CqlString::try_from("CQL_VERSION").unwrap(),
+                                                   csl1),
+                                                  (CqlString::try_from("COMPRESSION").unwrap(),
+                                                   csl2)])
+                .unwrap();
+        assert_eq!(res,
+                   DecodeResult {
+                       remaining_bytes: 0,
+                       decoded: SupportedMessage(smm),
+                   });
     }
 }
