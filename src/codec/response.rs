@@ -36,7 +36,13 @@ struct Frame<'a> {
 
 impl<'a> CqlDecode<'a, SupportedMessage<'a>> for SupportedMessage<'a> {
     fn decode(buf: &'a [u8]) -> Result<DecodeResult<SupportedMessage<'a>>> {
-        into_decode_result(decode::string_multimap(buf), SupportedMessage)
+        into_decode_result(decode::string_multimap(buf))
+    }
+}
+
+impl<'a> From<CqlStringMultiMap<'a>> for SupportedMessage<'a> {
+    fn from(v: CqlStringMultiMap<'a>) -> Self {
+        SupportedMessage(v)
     }
 }
 
@@ -46,15 +52,13 @@ pub struct DecodeResult<T> {
     pub decoded: T,
 }
 
-pub fn into_decode_result<'a, F, T, D>(r: IResult<&'a [u8], F, u32>,
-                                       into: D)
-                                       -> Result<DecodeResult<T>>
-    where D: Fn(F) -> T
+pub fn into_decode_result<'a, F, T>(r: IResult<&'a [u8], F, u32>) -> Result<DecodeResult<T>>
+    where F: Into<T>
 {
     match r {
         IResult::Done(buf, output) => {
             Ok(DecodeResult {
-                decoded: into(output),
+                decoded: output.into(),
                 remaining_bytes: buf.len(),
             })
         }
