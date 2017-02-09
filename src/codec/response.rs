@@ -8,13 +8,13 @@ error_chain! {
     }
 
     errors {
-        Incomplete {
+        Incomplete(err: String) {
             description("Unsufficient bytes")
-            display("Buffer contains unsufficient bytes")
+            display("Buffer contains unsufficient bytes: {}", err)
         }
-        ParserError {
+        ParserError(err: String) {
             description("Error during parsing")
-            display("Error during parsing")
+            display("{}", err)
         }
     }
 }
@@ -34,17 +34,13 @@ struct Frame<'a> {
 }
 
 impl<'a> CqlDecode<'a, SupportedMessage<'a>> for SupportedMessage<'a> {
-    // TODO: figure out how that works with draining an EasyBuf to do zero-copy
     fn decode(buf: &'a [u8]) -> Result<Self> {
         use nom::IResult;
 
         match decode::string_multimap(buf) {
             IResult::Done(_, output) => Ok(SupportedMessage(output)),
-            IResult::Error(_) => Err(ErrorKind::ParserError.into()),
-            IResult::Incomplete(err) => {
-                println!("err = {:?}", err);
-                Err(ErrorKind::Incomplete.into())
-            }
+            IResult::Error(err) => Err(ErrorKind::ParserError(format!("{}", err)).into()),
+            IResult::Incomplete(err) => Err(ErrorKind::Incomplete(format!("{:?}", err)).into()),
         }
     }
 }
