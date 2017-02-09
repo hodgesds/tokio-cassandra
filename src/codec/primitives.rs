@@ -64,6 +64,14 @@ impl<'a> CqlStringList<'a> {
         }
     }
 
+    pub fn try_from_str_slice(v: &[&'a str]) -> Result<CqlStringList<'a>> {
+        let mut res = Vec::with_capacity(v.len());
+        for s in v {
+            res.push(CqlString::try_from(s)?);
+        }
+        CqlStringList::try_from(res)
+    }
+
     pub unsafe fn unchecked_from(lst: Vec<CqlString<'a>>) -> CqlStringList<'a> {
         CqlStringList { container: lst }
     }
@@ -212,24 +220,13 @@ mod test {
         assert_finished_and_eq!(decode::string_list(&buf), sl);
     }
 
-    // TODO: make this into a From<_> implementation
-    fn cql_vec<'a>(v: &[&'a str]) -> Vec<CqlString<'a>> {
-        Vec::from(v)
-            .iter()
-            .map(|&s| CqlString::try_from(s))
-            .map(Result::unwrap)
-            .collect()
-    }
-
     #[test]
     fn string_multimap() {
         let mut mm = HashMap::new();
-        let sl = cql_vec(&["a", "b"][..]);
-        let sl = CqlStringList::try_from(sl).unwrap();
+        let sl = CqlStringList::try_from_str_slice(&["a", "b"][..]).unwrap();
         mm.insert(CqlString::try_from("a").unwrap(), sl);
 
-        let sl = cql_vec(&["c", "d"][..]);
-        let sl = CqlStringList::try_from(sl).unwrap();
+        let sl = CqlStringList::try_from_str_slice(&["c", "d"][..]).unwrap();
         mm.insert(CqlString::try_from("b").unwrap(), sl);
 
         let smm = CqlStringMultiMap::try_from(mm).unwrap();
