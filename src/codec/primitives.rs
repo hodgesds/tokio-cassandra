@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 use std::hash::{Hasher, Hash};
+use std::convert::AsRef;
 
 error_chain! {
      errors {
@@ -64,10 +65,15 @@ impl<'a> CqlStringList<'a> {
         }
     }
 
-    pub fn try_from_str_slice(v: &[&'a str]) -> Result<CqlStringList<'a>> {
+    pub fn try_from_iter<I, E, S>(v: I) -> Result<CqlStringList<'a>>
+        where I: IntoIterator<IntoIter = E, Item = S>,
+              E: Iterator<Item = S> + ExactSizeIterator,
+              S: AsRef<str> + 'a
+    {
+        let mut v = v.into_iter();
         let mut res = Vec::with_capacity(v.len());
         for s in v {
-            res.push(CqlString::try_from(s)?);
+            res.push(CqlString::try_from(s.as_ref())?);
         }
         CqlStringList::try_from(res)
     }
@@ -222,11 +228,13 @@ mod test {
 
     #[test]
     fn string_multimap() {
+        let sla = ["a", "b"];
+        let slb = ["c", "d"];
         let mut mm = HashMap::new();
-        let sl = CqlStringList::try_from_str_slice(&["a", "b"][..]).unwrap();
+        let sl = CqlStringList::try_from_iter(&sla).unwrap();
         mm.insert(CqlString::try_from("a").unwrap(), sl);
 
-        let sl = CqlStringList::try_from_str_slice(&["c", "d"][..]).unwrap();
+        let sl = CqlStringList::try_from_iter(&slb).unwrap();
         mm.insert(CqlString::try_from("b").unwrap(), sl);
 
         let smm = CqlStringMultiMap::try_from(mm).unwrap();
