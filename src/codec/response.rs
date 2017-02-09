@@ -26,6 +26,7 @@ pub struct SupportedMessage<'a>(pub CqlStringMultiMap<'a>);
 #[derive(Debug, PartialEq)]
 pub enum Message<'a> {
     Supported(SupportedMessage<'a>),
+    Ready,
 }
 
 #[derive(Debug, PartialEq)]
@@ -71,7 +72,6 @@ pub trait CqlDecode<'a, T> {
     fn decode(buf: &'a [u8]) -> Result<DecodeResult<T>>;
 }
 
-
 #[cfg(test)]
 mod test {
     use codec::header::Header;
@@ -103,4 +103,6 @@ mod test {
                        decoded: SupportedMessage(smm),
                    });
     }
+
+
 }

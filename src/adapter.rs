@@ -10,13 +10,11 @@ use std::io;
 pub struct CqlCodecV3;
 impl Codec for CqlCodecV3 {
     type In = (RequestId, String);
-    type Out = (RequestId, request::Message);
-
+    type Out = (RequestId, request::Message<'static>);
     fn decode(&mut self, _buf: &mut EasyBuf) -> io::Result<Option<(RequestId, String)>> {
         if _buf.len() < Header::encoded_len() {
             return Ok(None);
         }
-
         // TODO: implement body parsing
 
         Ok(None)
