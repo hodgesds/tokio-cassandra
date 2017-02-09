@@ -105,6 +105,18 @@ impl<'a> CqlStringMultiMap<'a> {
         }
     }
 
+    pub fn try_from_iter<I, E>(v: I) -> Result<CqlStringMultiMap<'a>>
+        where I: IntoIterator<IntoIter = E, Item = (CqlString<'a>, CqlStringList<'a>)>,
+              E: Iterator<Item = (CqlString<'a>, CqlStringList<'a>)> + ExactSizeIterator
+    {
+        let v = v.into_iter();
+        let mut res = HashMap::with_capacity(v.len());
+        for (k, v) in v {
+            res.insert(k, v);
+        }
+        CqlStringMultiMap::try_from(res)
+    }
+
     pub unsafe fn unchecked_from(lst: HashMap<CqlString<'a>, CqlStringList<'a>>)
                                  -> CqlStringMultiMap<'a> {
         CqlStringMultiMap { container: lst }
@@ -193,7 +205,6 @@ pub mod encode {
 #[cfg(test)]
 mod test {
     use super::{encode, decode, CqlString, CqlStringList, CqlStringMultiMap};
-    use std::collections::HashMap;
 
     #[test]
     fn short() {
@@ -230,14 +241,11 @@ mod test {
     fn string_multimap() {
         let sla = ["a", "b"];
         let slb = ["c", "d"];
-        let mut mm = HashMap::new();
-        let sl = CqlStringList::try_from_iter(sla.iter().cloned()).unwrap();
-        mm.insert(CqlString::try_from("a").unwrap(), sl);
-
-        let sl = CqlStringList::try_from_iter(slb.iter().cloned()).unwrap();
-        mm.insert(CqlString::try_from("b").unwrap(), sl);
-
-        let smm = CqlStringMultiMap::try_from(mm).unwrap();
+        let csl1 = CqlStringList::try_from_iter(sla.iter().cloned()).unwrap();
+        let csl2 = CqlStringList::try_from_iter(slb.iter().cloned()).unwrap();
+        let smm = CqlStringMultiMap::try_from_iter(vec![(CqlString::try_from("a").unwrap(), csl1),
+                                                        (CqlString::try_from("b").unwrap(), csl2)])
+            .unwrap();
 
         let mut buf = Vec::new();
         encode::string_multimap(&smm, &mut buf);
