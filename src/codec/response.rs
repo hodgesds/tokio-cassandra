@@ -1,5 +1,6 @@
 use codec::header::Header;
 use codec::primitives::{CqlStringMultiMap, decode};
+use nom::IResult;
 
 error_chain! {
     foreign_links {
@@ -34,19 +35,36 @@ struct Frame<'a> {
 }
 
 impl<'a> CqlDecode<'a, SupportedMessage<'a>> for SupportedMessage<'a> {
-    fn decode(buf: &'a [u8]) -> Result<Self> {
-        use nom::IResult;
+    fn decode(buf: &'a [u8]) -> Result<DecodeResult<SupportedMessage<'a>>> {
+        into_decode_result(decode::string_multimap(buf), SupportedMessage)
+    }
+}
 
-        match decode::string_multimap(buf) {
-            IResult::Done(_, output) => Ok(SupportedMessage(output)),
-            IResult::Error(err) => Err(ErrorKind::ParserError(format!("{}", err)).into()),
-            IResult::Incomplete(err) => Err(ErrorKind::Incomplete(format!("{:?}", err)).into()),
+#[derive(Debug)]
+pub struct DecodeResult<T> {
+    pub remaining_bytes: usize,
+    pub decoded: T,
+}
+
+pub fn into_decode_result<'a, F, T, D>(r: IResult<&'a [u8], F, u32>,
+                                       into: D)
+                                       -> Result<DecodeResult<T>>
+    where D: Fn(F) -> T
+{
+    match r {
+        IResult::Done(buf, output) => {
+            Ok(DecodeResult {
+                decoded: into(output),
+                remaining_bytes: buf.len(),
+            })
         }
+        IResult::Error(err) => Err(ErrorKind::ParserError(format!("{}", err)).into()),
+        IResult::Incomplete(err) => Err(ErrorKind::Incomplete(format!("{:?}", err)).into()),
     }
 }
 
 pub trait CqlDecode<'a, T> {
-    fn decode(buf: &'a [u8]) -> Result<T>;
+    fn decode(buf: &'a [u8]) -> Result<DecodeResult<T>>;
 }
 
 
