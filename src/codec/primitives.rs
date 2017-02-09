@@ -68,12 +68,12 @@ impl<'a> CqlStringList<'a> {
     pub fn try_from_iter<I, E, S>(v: I) -> Result<CqlStringList<'a>>
         where I: IntoIterator<IntoIter = E, Item = S>,
               E: Iterator<Item = S> + ExactSizeIterator,
-              S: AsRef<str> + 'a
+              S: Into<&'a str> + 'a
     {
-        let mut v = v.into_iter();
+        let v = v.into_iter();
         let mut res = Vec::with_capacity(v.len());
         for s in v {
-            res.push(CqlString::try_from(s.as_ref())?);
+            res.push(CqlString::try_from(s.into())?);
         }
         CqlStringList::try_from(res)
     }
@@ -231,10 +231,10 @@ mod test {
         let sla = ["a", "b"];
         let slb = ["c", "d"];
         let mut mm = HashMap::new();
-        let sl = CqlStringList::try_from_iter(&sla).unwrap();
+        let sl = CqlStringList::try_from_iter(sla.iter().cloned()).unwrap();
         mm.insert(CqlString::try_from("a").unwrap(), sl);
 
-        let sl = CqlStringList::try_from_iter(&slb).unwrap();
+        let sl = CqlStringList::try_from_iter(slb.iter().cloned()).unwrap();
         mm.insert(CqlString::try_from("b").unwrap(), sl);
 
         let smm = CqlStringMultiMap::try_from(mm).unwrap();
