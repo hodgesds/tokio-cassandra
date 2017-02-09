@@ -4,13 +4,13 @@ use std::hash::{Hasher, Hash};
 use std::convert::AsRef;
 
 error_chain! {
-     errors {
-        MaximumLengthExceeded(l: usize) {
-          description("Too many elements container")
-          display("Expected not more than {} elements, got {}.", u16::max_value(), l)
-        }
+ errors {
+    MaximumLengthExceeded(l: usize) {
+      description("Too many elements container")
+      display("Expected not more than {} elements, got {}.", u16::max_value(), l)
     }
- }
+}
+}
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct CqlString<'a> {
@@ -128,6 +128,7 @@ impl<'a> CqlStringMap<'a> {
         self.container.iter()
     }
 }
+
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct CqlStringMultiMap<'a> {
     container: HashMap<CqlString<'a>, CqlStringList<'a>>,
@@ -169,106 +170,10 @@ impl<'a> CqlStringMultiMap<'a> {
     }
 }
 
-pub mod decode {
-    use super::{CqlStringList, CqlString, CqlStringMap, CqlStringMultiMap};
-    use nom::be_u16;
-    use std::collections::HashMap;
-
-    named!(pub short(&[u8]) -> u16, call!(be_u16));
-    named!(pub string(&[u8]) -> CqlString, do_parse!(
-            s: short          >>
-            str: take_str!(s) >>
-            (unsafe { CqlString::unchecked_from(str) })
-        )
-    );
-    named!(pub string_list(&[u8]) -> CqlStringList, do_parse!(
-            l: short >>
-            list: count!(string, l as usize) >>
-            (unsafe { CqlStringList::unchecked_from(list) })
-        )
-    );
-    named!(pub string_map(&[u8]) -> CqlStringMap,
-        do_parse!(
-            l: short >>
-            mm: fold_many_m_n!(l as usize, l as usize,
-                do_parse!(
-                    key: string >>
-                    value: string >>
-                    (key, value)
-                ),
-                HashMap::new(),
-                | mut map: HashMap<_,_>, (k, v) | {
-                    map.insert(k, v);
-                    map
-                }
-            )
-             >>
-            (unsafe { CqlStringMap::unchecked_from(mm) })
-        )
-    );
-    named!(pub string_multimap(&[u8]) -> CqlStringMultiMap,
-        do_parse!(
-            l: short >>
-            mm: fold_many_m_n!(l as usize, l as usize,
-                do_parse!(
-                    key: string >>
-                    value: string_list >>
-                    (key, value)
-                ),
-                HashMap::new(),
-                | mut map: HashMap<_,_>, (k, v) | {
-                    map.insert(k, v);
-                    map
-                }
-            )
-             >>
-            (unsafe { CqlStringMultiMap::unchecked_from(mm) })
-        )
-    );
-}
-
-pub mod encode {
-    use byteorder::{ByteOrder, BigEndian};
-    use super::{CqlStringList, CqlString, CqlStringMap, CqlStringMultiMap};
-
-    pub fn short(v: u16) -> [u8; 2] {
-        let mut bytes = [0u8; 2];
-        BigEndian::write_u16(&mut bytes[..], v);
-        bytes
-    }
-
-    pub fn string(s: &CqlString, buf: &mut Vec<u8>) {
-        buf.extend(&short(s.len())[..]);
-        buf.extend(s.as_bytes());
-    }
-
-    pub fn string_list(l: &CqlStringList, buf: &mut Vec<u8>) {
-        buf.extend(&short(l.len())[..]);
-        for s in l.iter() {
-            string(s, buf);
-        }
-    }
-
-    pub fn string_map(m: &CqlStringMap, buf: &mut Vec<u8>) {
-        buf.extend(&short(m.len())[..]);
-        for (k, v) in m.iter() {
-            string(k, buf);
-            string(v, buf);
-        }
-    }
-
-    pub fn string_multimap(m: &CqlStringMultiMap, buf: &mut Vec<u8>) {
-        buf.extend(&short(m.len())[..]);
-        for (k, lst) in m.iter() {
-            string(k, buf);
-            string_list(lst, buf);
-        }
-    }
-}
-
 #[cfg(test)]
 mod test {
-    use super::{encode, decode, CqlString, CqlStringList, CqlStringMap, CqlStringMultiMap};
+    use super::{CqlString, CqlStringList, CqlStringMap, CqlStringMultiMap};
+    use super::super::{encode, decode};
 
     #[test]
     fn short() {
