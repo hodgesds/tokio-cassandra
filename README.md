@@ -18,5 +18,6 @@ extern crate tokio_cassandra;
 
 # Goals
 * implement cassandra v3 protocol leveraging the tokio ecosystem to the fullest. Stream as much as possible to reduce the amount of copies to a minium.
+* safety first - the client will verify all input received from the server
 * leave it flexible enough to easily provide support for protocol version 4
 * test-first development - no code exists unless a test needs it to pass

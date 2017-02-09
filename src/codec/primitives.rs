@@ -68,7 +68,7 @@ impl<'a> CqlStringList<'a> {
     pub fn try_from_iter<I, E, S>(v: I) -> Result<CqlStringList<'a>>
         where I: IntoIterator<IntoIter = E, Item = S>,
               E: Iterator<Item = S> + ExactSizeIterator,
-              S: Into<&'a str> + 'a
+              S: Into<&'a str>
     {
         let v = v.into_iter();
         let mut res = Vec::with_capacity(v.len());
