@@ -1,6 +1,7 @@
 use codec::header::{OpCode, Header, ProtocolVersion, Direction};
+use std::collections::HashMap;
 
-use codec::primitives::CqlString;
+use codec::primitives::{encode, CqlStringMap, CqlString};
 
 error_chain! {
     foreign_links {
@@ -28,10 +29,25 @@ pub enum Message<'a> {
 }
 
 pub struct StartupMessage<'a> {
-    _cql_version: CqlString<'a>,
-    _compression: Option<CqlString<'a>>,
+    pub cql_version: CqlString<'a>,
+    pub compression: Option<CqlString<'a>>,
 }
 
+impl<'a> CqlEncode for StartupMessage<'a> {
+    fn encode(&self, buf: &mut Vec<u8>) -> Result<usize> {
+        let mut sm = HashMap::new();
+        sm.insert(unsafe { CqlString::unchecked_from("CQL_VERSION") },
+                  self.cql_version.clone());
+        if let Some(ref c) = self.compression {
+            sm.insert(unsafe { CqlString::unchecked_from("COMPRESSION") },
+                      c.clone());
+        }
+        let sm = unsafe { CqlStringMap::unchecked_from(sm) };
+        let l = buf.len();
+        encode::string_map(&sm, buf);
+        Ok(buf.len() - l)
+    }
+}
 
 impl<'a> Message<'a> {
     fn opcode(&self) -> OpCode {
@@ -50,19 +66,10 @@ impl<'a> Message<'a> {
 
 impl<'a> CqlEncode for Message<'a> {
     fn encode(&self, buf: &mut Vec<u8>) -> Result<usize> {
-        use codec::primitives::encode;
-        use codec::primitives::CqlStringMap;
 
         match *self {
             Message::Options => Ok(0),
-            Message::Startup(_) => {
-                let sm = CqlStringMap::try_from_iter(vec![(CqlString::try_from("CQL_VERSION")?,
-                                                           CqlString::try_from("3.2.1")?)])?;
-                //                data.cql_version)])?;
-                let l = buf.len();
-                encode::string_map(&sm, buf);
-                Ok(buf.len() - l)
-            }
+            Message::Startup(ref msg) => msg.encode(buf),
         }
     }
 }
@@ -112,11 +119,10 @@ mod test {
 
     #[test]
     fn from_startup_request() {
-        let m = StartupMessage {
-            _cql_version: CqlString::try_from("3.2.1").unwrap(),
-            _compression: None,
-        };
-        let o = Message::Startup(m);
+        let o = Message::Startup(StartupMessage {
+            cql_version: CqlString::try_from("3.2.1").unwrap(),
+            compression: None,
+        });
 
         let mut buf = Vec::new();
         let flags = 0;
