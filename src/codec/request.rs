@@ -1,14 +1,14 @@
 use codec::header::{OpCode, Header, ProtocolVersion, Direction};
 use std::collections::HashMap;
 
-use codec::primitives::borrowed::{CqlStringMap, CqlString};
+use codec::primitives::{CqlStringMap, CqlString};
 use codec::primitives::encode;
 
 error_chain! {
     foreign_links {
         Io(::std::io::Error);
         HeaderError(::codec::header::Error);
-        PrimitiveError(::codec::primitives::borrowed::Error);
+        PrimitiveError(::codec::primitives::Error);
     }
     errors {
         BodyLengthExceeded(len: usize) {
@@ -30,15 +30,16 @@ pub enum Message {
 }
 
 pub struct StartupMessage {
-    pub cql_version: CqlString,
-    pub compression: Option<CqlString>,
+    pub cql_version: CqlString<Vec<u8>>,
+    pub compression: Option<CqlString<Vec<u8>>>,
 }
 
 impl CqlEncode for StartupMessage {
     fn encode(&self, buf: &mut Vec<u8>) -> Result<usize> {
-        let mut sm = HashMap::new();
+        let mut sm: HashMap<CqlString<Vec<u8>>, CqlString<Vec<u8>>> = HashMap::new();
         sm.insert(unsafe { CqlString::unchecked_from("CQL_VERSION") },
                   self.cql_version.clone());
+
         if let Some(ref c) = self.compression {
             sm.insert(unsafe { CqlString::unchecked_from("COMPRESSION") },
                       c.clone());

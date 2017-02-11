@@ -11,12 +11,6 @@ extern crate serde_derive;
 
 extern crate tokio_core;
 extern crate tokio_proto;
-#[macro_use]
-extern crate nom;
-
-#[cfg(test)]
-#[macro_use]
-extern crate nom_test_helpers;
 
 pub mod codec;
 pub mod adapter;
