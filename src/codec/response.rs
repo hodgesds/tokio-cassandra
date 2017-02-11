@@ -1,5 +1,6 @@
 use codec::header::Header;
-use codec::primitives::{CqlStringMultiMap, decode};
+use codec::primitives::borrowed::CqlStringMultiMap;
+use codec::primitives::decode;
 use nom::IResult;
 
 error_chain! {
@@ -76,7 +77,7 @@ pub trait CqlDecode<'a, T> {
 mod test {
     use codec::header::Header;
     use super::*;
-    use codec::primitives::{CqlStringMultiMap, CqlString, CqlStringList};
+    use codec::primitives::borrowed::{CqlStringMultiMap, CqlString, CqlStringList};
 
     fn skip_header(b: &[u8]) -> &[u8] {
         &b[Header::encoded_len()..]

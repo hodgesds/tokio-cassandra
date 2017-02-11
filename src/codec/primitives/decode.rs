@@ -1,4 +1,4 @@
-use super::{CqlStringList, CqlString, CqlStringMap, CqlStringMultiMap};
+use super::borrowed::{CqlStringList, CqlString, CqlStringMap, CqlStringMultiMap};
 use nom::be_u16;
 use std::collections::HashMap;
 

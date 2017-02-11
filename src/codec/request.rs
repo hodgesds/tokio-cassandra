@@ -1,13 +1,14 @@
 use codec::header::{OpCode, Header, ProtocolVersion, Direction};
 use std::collections::HashMap;
 
-use codec::primitives::{encode, CqlStringMap, CqlString};
+use codec::primitives::borrowed::{CqlStringMap, CqlString};
+use codec::primitives::encode;
 
 error_chain! {
     foreign_links {
         Io(::std::io::Error);
         HeaderError(::codec::header::Error);
-        PrimitiveError(::codec::primitives::Error);
+        PrimitiveError(::codec::primitives::borrowed::Error);
     }
     errors {
         BodyLengthExceeded(len: usize) {

@@ -4,13 +4,14 @@ use std::hash::{Hasher, Hash};
 use std::convert::AsRef;
 
 error_chain! {
- errors {
-    MaximumLengthExceeded(l: usize) {
-      description("Too many elements container")
-      display("Expected not more than {} elements, got {}.", u16::max_value(), l)
-    }
+errors {
+MaximumLengthExceeded(l: usize) {
+  description("Too many elements container")
+  display("Expected not more than {} elements, got {}.", u16::max_value(), l)
 }
 }
+}
+
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct CqlString<'a> {
@@ -173,7 +174,7 @@ impl<'a> CqlStringMultiMap<'a> {
 #[cfg(test)]
 mod test {
     use super::{CqlString, CqlStringList, CqlStringMap, CqlStringMultiMap};
-    use super::super::{encode, decode};
+    use super::super::super::{encode, decode};
 
     #[test]
     fn short() {
