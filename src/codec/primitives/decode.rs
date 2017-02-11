@@ -2,6 +2,7 @@ use super::{CqlStringList, CqlString, CqlStringMap, CqlStringMultiMap};
 use std::collections::HashMap;
 use tokio_core::io::EasyBuf;
 use byteorder::{ByteOrder, BigEndian};
+use codec::primitives::CqlFrom;
 
 error_chain!{
     errors {
@@ -12,23 +13,21 @@ error_chain!{
     }
 }
 
-//named!(pub short(&[u8]) -> u16, call!(be_u16));
+pub type ParseResult<'a, T> = Result<(&'a mut EasyBuf, T)>;
 
-pub type DecodeResult<'a, T> = Result<(&'a mut EasyBuf, T)>;
-
-pub fn short(buf: &mut EasyBuf) -> DecodeResult<u16> {
+pub fn short(buf: &mut EasyBuf) -> ParseResult<u16> {
     let databuf = buf.drain_to(2);
     let short = BigEndian::read_u16(databuf.as_slice());
     Ok((buf, short))
 }
 
-pub fn string(buf: &mut EasyBuf) -> DecodeResult<CqlString<EasyBuf>> {
+pub fn string(buf: &mut EasyBuf) -> ParseResult<CqlString<EasyBuf>> {
     let (buf, len) = short(buf)?;
     let str = CqlString::from(buf.drain_to(len as usize));
     Ok((buf, str))
 }
 
-pub fn string_list(buf: &mut EasyBuf) -> DecodeResult<CqlStringList<EasyBuf>> {
+pub fn string_list(buf: &mut EasyBuf) -> ParseResult<CqlStringList<EasyBuf>> {
     let (buf, len) = short(buf)?;
     let mut v = Vec::new();
     for _ in 0..len {
@@ -39,7 +38,7 @@ pub fn string_list(buf: &mut EasyBuf) -> DecodeResult<CqlStringList<EasyBuf>> {
     Ok((buf, lst))
 }
 
-pub fn string_map(buf: &mut EasyBuf) -> DecodeResult<CqlStringMap<EasyBuf>> {
+pub fn string_map(buf: &mut EasyBuf) -> ParseResult<CqlStringMap<EasyBuf>> {
     let (buf, len) = short(buf)?;
     let mut map = HashMap::new();
 
@@ -52,7 +51,7 @@ pub fn string_map(buf: &mut EasyBuf) -> DecodeResult<CqlStringMap<EasyBuf>> {
     Ok((buf, unsafe { CqlStringMap::unchecked_from(map) }))
 }
 
-pub fn string_multimap(buf: &mut EasyBuf) -> DecodeResult<CqlStringMultiMap<EasyBuf>> {
+pub fn string_multimap(buf: &mut EasyBuf) -> ParseResult<CqlStringMultiMap<EasyBuf>> {
     let (buf, len) = short(buf)?;
     let mut map = HashMap::new();
 

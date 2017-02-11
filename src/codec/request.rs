@@ -36,6 +36,8 @@ pub struct StartupMessage {
 
 impl CqlEncode for StartupMessage {
     fn encode(&self, buf: &mut Vec<u8>) -> Result<usize> {
+        use codec::primitives::CqlFrom;
+
         let mut sm: HashMap<CqlString<Vec<u8>>, CqlString<Vec<u8>>> = HashMap::new();
         sm.insert(unsafe { CqlString::unchecked_from("CQL_VERSION") },
                   self.cql_version.clone());
@@ -104,6 +106,7 @@ pub fn cql_encode(flags: u8, stream_id: u16, to_encode: Message, sink: &mut Vec<
 #[cfg(test)]
 mod test {
     use super::*;
+    use codec::primitives::CqlFrom;
 
     #[test]
     fn from_options_request() {

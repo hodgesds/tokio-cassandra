@@ -36,7 +36,7 @@ struct _Frame {
 }
 
 impl CqlDecode<SupportedMessage> for SupportedMessage {
-    fn decode(buf: &mut ::tokio_core::io::EasyBuf) -> Result<DecodeResult<SupportedMessage>> {
+    fn decode(buf: &mut ::tokio_core::io::EasyBuf) -> Result<SupportedMessage> {
         into_decode_result(decode::string_multimap(buf))
     }
 }
@@ -47,14 +47,7 @@ impl From<CqlStringMultiMap<::tokio_core::io::EasyBuf>> for SupportedMessage {
     }
 }
 
-#[derive(Debug, PartialEq)]
-pub struct DecodeResult<T> {
-    pub remaining_bytes: usize,
-    pub decoded: T,
-}
-
-pub fn into_decode_result<F, T>(_r: ::codec::primitives::decode::DecodeResult<F>)
-                                -> Result<DecodeResult<T>>
+pub fn into_decode_result<F, T>(_r: ::codec::primitives::decode::ParseResult<F>) -> Result<T>
     where F: Into<T>
 {
     //    match r {
@@ -73,42 +66,37 @@ pub fn into_decode_result<F, T>(_r: ::codec::primitives::decode::DecodeResult<F>
 }
 
 pub trait CqlDecode<T> {
-    fn decode(buf: &mut ::tokio_core::io::EasyBuf) -> Result<DecodeResult<T>>;
+    fn decode(buf: &mut ::tokio_core::io::EasyBuf) -> Result<T>;
 }
 
 #[cfg(test)]
 mod test {
     use codec::header::Header;
-    //    use codec::primitives::borrowed::{CqlStringMultiMap, CqlString, CqlStringList};
+    use codec::primitives::{CqlFrom, CqlStringMultiMap, CqlString, CqlStringList};
+    use super::*;
 
-    fn _skip_header(b: &[u8]) -> &[u8] {
+    fn skip_header(b: &[u8]) -> &[u8] {
         &b[Header::encoded_len()..]
     }
 
     #[test]
     fn decode_supported_message() {
-        // TODO: make it run again
-        //        let msg = include_bytes!("../../tests/fixtures/v3/responses/supported.msg");
-        //        let res = SupportedMessage::decode(skip_header(&msg[..])).unwrap();
-        //
-        //        let sla = ["3.2.1"];
-        //        let slb = ["snappy", "lz4"];
-        //        let csl1 = CqlStringList::try_from_iter(sla.iter().cloned()).unwrap();
-        //        let csl2 = CqlStringList::try_from_iter(slb.iter().cloned()).unwrap();
-        //        let smm =
-        //            CqlStringMultiMap::try_from_iter(
-        // vec![(CqlString::try_from("CQL_VERSION").unwrap(),
-        //                                                   csl1),
-        //
-        // (CqlString::try_from("COMPRESSION").unwrap(),
-        //                                                   csl2)])
-        //                .unwrap();
-        //
-        //        assert_eq!(res,
-        //                   DecodeResult {
-        //                       remaining_bytes: 0,
-        //                       decoded: SupportedMessage(smm),
-        //                   });
+        let msg = include_bytes!("../../tests/fixtures/v3/responses/supported.msg");
+        let mut buf = Vec::from(skip_header(&msg[..])).into();
+        let res = SupportedMessage::decode(&mut buf).unwrap();
+
+        let sla = ["3.2.1"];
+        let slb = ["snappy", "lz4"];
+        let csl1 = CqlStringList::try_from_iter(sla.iter().cloned()).unwrap();
+        let csl2 = CqlStringList::try_from_iter(slb.iter().cloned()).unwrap();
+        let smm =
+            CqlStringMultiMap::try_from_iter(vec![(CqlString::try_from("CQL_VERSION").unwrap(),
+                                                   csl1),
+                                                  (CqlString::try_from("COMPRESSION").unwrap(),
+                                                   csl2)])
+                .unwrap();
+
+        //        assert_eq!(res, SupportedMessage(smm));
     }
 
 
