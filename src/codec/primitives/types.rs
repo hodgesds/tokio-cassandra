@@ -187,6 +187,21 @@ impl<T> CqlFrom<CqlStringList<T>, Vec<CqlString<T>>> for CqlStringList<T>
     }
 }
 
+impl CqlStringList<EasyBuf> {
+    pub fn try_from_iter_easy<'a, I, E, S>(v: I) -> Result<CqlStringList<EasyBuf>>
+        where I: IntoIterator<IntoIter = E, Item = S>,
+              E: Iterator<Item = S> + ExactSizeIterator,
+              S: Into<&'a str>
+    {
+        let v = v.into_iter();
+        let mut res = Vec::with_capacity(v.len());
+        for s in v {
+            res.push(CqlString::try_from(s.into())?);
+        }
+        CqlStringList::try_from(res)
+    }
+}
+
 impl CqlStringList<Vec<u8>> {
     pub fn try_from_iter<'a, I, E, S>(v: I) -> Result<CqlStringList<Vec<u8>>>
         where I: IntoIterator<IntoIter = E, Item = S>,

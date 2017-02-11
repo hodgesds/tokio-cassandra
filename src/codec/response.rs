@@ -6,6 +6,7 @@ error_chain! {
     foreign_links {
         Io(::std::io::Error);
         HeaderError(::codec::header::Error);
+        DecodeError(::codec::primitives::decode::Error);
     }
 
     errors {
@@ -37,7 +38,9 @@ struct _Frame {
 
 impl CqlDecode<SupportedMessage> for SupportedMessage {
     fn decode(buf: &mut ::tokio_core::io::EasyBuf) -> Result<SupportedMessage> {
-        into_decode_result(decode::string_multimap(buf))
+        decode::string_multimap(buf)
+            .map(|d| d.1.into())
+            .map_err(|err| ErrorKind::ParserError(format!("{}", err)).into())
     }
 }
 
@@ -45,24 +48,6 @@ impl From<CqlStringMultiMap<::tokio_core::io::EasyBuf>> for SupportedMessage {
     fn from(v: CqlStringMultiMap<::tokio_core::io::EasyBuf>) -> Self {
         SupportedMessage(v)
     }
-}
-
-pub fn into_decode_result<F, T>(_r: ::codec::primitives::decode::ParseResult<F>) -> Result<T>
-    where F: Into<T>
-{
-    //    match r {
-    //        IResult::Done(buf, output) => {
-    //            Ok(DecodeResult {
-    //                decoded: output.into(),
-    //                // TODO: change to real left bytes
-    //                remaining_bytes: 0,
-    //            })
-    //        }
-    //        // TODO: CHange to real error printing
-    //        IResult::Error(err) => Err(ErrorKind::ParserError(format!("{}", "abc")).into()),
-    //        IResult::Incomplete(err) => Err(ErrorKind::Incomplete(format!("{:?}", err)).into()),
-    //    }
-    unimplemented!()
 }
 
 pub trait CqlDecode<T> {
@@ -74,6 +59,7 @@ mod test {
     use codec::header::Header;
     use codec::primitives::{CqlFrom, CqlStringMultiMap, CqlString, CqlStringList};
     use super::*;
+    use tokio_core::io::EasyBuf;
 
     fn skip_header(b: &[u8]) -> &[u8] {
         &b[Header::encoded_len()..]
@@ -87,8 +73,8 @@ mod test {
 
         let sla = ["3.2.1"];
         let slb = ["snappy", "lz4"];
-        let csl1 = CqlStringList::try_from_iter(sla.iter().cloned()).unwrap();
-        let csl2 = CqlStringList::try_from_iter(slb.iter().cloned()).unwrap();
+        let csl1 = CqlStringList::try_from_iter_easy(sla.iter().cloned()).unwrap();
+        let csl2 = CqlStringList::try_from_iter_easy(slb.iter().cloned()).unwrap();
         let smm =
             CqlStringMultiMap::try_from_iter(vec![(CqlString::try_from("CQL_VERSION").unwrap(),
                                                    csl1),
@@ -96,7 +82,9 @@ mod test {
                                                    csl2)])
                 .unwrap();
 
+        // TODO: do real comparison like
         //        assert_eq!(res, SupportedMessage(smm));
+        assert_eq!(format!("{:?}", res), format!("{:?}", SupportedMessage(smm)));
     }
 
 
