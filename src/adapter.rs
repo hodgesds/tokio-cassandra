@@ -26,17 +26,17 @@ impl Default for CqlCodecV3 {
 }
 
 #[derive(Debug)]
-pub struct Response<'a> {
+pub struct Response {
     store: EasyBuf,
     pub header: Header,
-    pub message: response::Message<'a>,
+    pub message: response::Message,
 }
 
 
 impl Codec for CqlCodecV3 {
-    type In = (RequestId, Response<'static>);
-    type Out = (RequestId, request::Message<'static>);
-    fn decode(&mut self, _buf: &mut EasyBuf) -> io::Result<Option<(RequestId, Response<'static>)>> {
+    type In = (RequestId, Response);
+    type Out = (RequestId, request::Message);
+    fn decode(&mut self, _buf: &mut EasyBuf) -> io::Result<Option<(RequestId, Response)>> {
         unimplemented!();
         //        use self::Machine::*;
         //        match self.state {

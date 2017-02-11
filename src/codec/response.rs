@@ -22,28 +22,28 @@ error_chain! {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct SupportedMessage<'a>(pub CqlStringMultiMap<'a>);
+pub struct SupportedMessage(pub CqlStringMultiMap);
 
 #[derive(Debug, PartialEq)]
-pub enum Message<'a> {
-    Supported(SupportedMessage<'a>),
+pub enum Message {
+    Supported(SupportedMessage),
     Ready,
 }
 
 #[derive(Debug, PartialEq)]
-struct Frame<'a> {
+struct Frame {
     header: Header,
-    body: Message<'a>,
+    body: Message,
 }
 
-impl<'a> CqlDecode<'a, SupportedMessage<'a>> for SupportedMessage<'a> {
-    fn decode(buf: &'a [u8]) -> Result<DecodeResult<SupportedMessage<'a>>> {
+impl CqlDecode<SupportedMessage> for SupportedMessage {
+    fn decode(buf: &[u8]) -> Result<DecodeResult<SupportedMessage>> {
         into_decode_result(decode::string_multimap(buf))
     }
 }
 
-impl<'a> From<CqlStringMultiMap<'a>> for SupportedMessage<'a> {
-    fn from(v: CqlStringMultiMap<'a>) -> Self {
+impl From<CqlStringMultiMap> for SupportedMessage {
+    fn from(v: CqlStringMultiMap) -> Self {
         SupportedMessage(v)
     }
 }
@@ -69,8 +69,8 @@ pub fn into_decode_result<'a, F, T>(r: IResult<&'a [u8], F, u32>) -> Result<Deco
     }
 }
 
-pub trait CqlDecode<'a, T> {
-    fn decode(buf: &'a [u8]) -> Result<DecodeResult<T>>;
+pub trait CqlDecode<T> {
+    fn decode(buf: &[u8]) -> Result<DecodeResult<T>>;
 }
 
 #[cfg(test)]

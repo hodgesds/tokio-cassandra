@@ -1,4 +1,3 @@
-use std::borrow::Cow;
 use std::collections::HashMap;
 use std::hash::{Hasher, Hash};
 use std::convert::AsRef;
@@ -13,60 +12,87 @@ MaximumLengthExceeded(l: usize) {
 }
 
 
-#[derive(Debug, PartialEq, Eq, Clone)]
-pub struct CqlString<'a> {
-    inner: Cow<'a, str>,
+#[derive(Debug, Clone)]
+pub struct CqlString {
+    start: usize,
+    end: usize,
+    buf: ::tokio_core::io::EasyBuf,
 }
 
-impl<'a> CqlString<'a> {
-    pub fn try_from(s: &'a str) -> Result<CqlString<'a>> {
+impl PartialEq for CqlString {
+    fn eq(&self, other: &CqlString) -> bool {
+        // TODO: check for reference of EasyBuf too
+        self.start == other.start && self.end == other.end
+    }
+}
+
+impl Eq for CqlString {}
+
+// str::from_utf8(&buf[self.at..
+//self.at + self.len as usize]
+
+impl AsRef<str> for CqlString {
+    fn as_ref(&self) -> &str {
+        ::std::str::from_utf8(&self.buf.as_slice()[self.start..self.end]).unwrap()
+    }
+}
+
+
+impl Hash for CqlString {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.as_ref().hash(state)
+    }
+}
+
+
+impl CqlString {
+    pub fn try_from(s: &str) -> Result<CqlString> {
         match s.len() > u16::max_value() as usize {
             true => Err(ErrorKind::MaximumLengthExceeded(s.len()).into()),
-            false => Ok(CqlString { inner: Cow::Borrowed(s) }),
+            false => {
+                Ok({
+                    unsafe { CqlString::unchecked_from(s) }
+                })
+            }
         }
     }
 
-    pub unsafe fn unchecked_from(s: &'a str) -> CqlString<'a> {
-        CqlString { inner: Cow::Borrowed(s) }
+    pub unsafe fn unchecked_from(s: &str) -> CqlString {
+        let vec = Vec::from(s);
+        let len = vec.len();
+
+        CqlString {
+            buf: vec.into(),
+            start: 0,
+            end: len,
+        }
     }
 
     pub fn len(&self) -> u16 {
-        self.inner.as_ref().len() as u16
+        (self.end - self.start) as u16 // TODO: safe cast
     }
 
     pub fn as_bytes(&self) -> &[u8] {
-        self.inner.as_ref().as_bytes()
-    }
-}
-
-impl<'a> AsRef<str> for CqlString<'a> {
-    fn as_ref(&self) -> &str {
-        self.inner.as_ref()
-    }
-}
-
-impl<'a> Hash for CqlString<'a> {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        self.inner.hash(state)
+        self.buf.as_slice()
     }
 }
 
 /// TODO: zero copy - implement it as offset to beginning of vec to CqlStrings to prevent Vec
 /// allocation
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct CqlStringList<'a> {
-    container: Vec<CqlString<'a>>,
+pub struct CqlStringList {
+    container: Vec<CqlString>,
 }
 
-impl<'a> CqlStringList<'a> {
-    pub fn try_from(lst: Vec<CqlString<'a>>) -> Result<CqlStringList<'a>> {
+impl CqlStringList {
+    pub fn try_from(lst: Vec<CqlString>) -> Result<CqlStringList> {
         match lst.len() > u16::max_value() as usize {
             true => Err(ErrorKind::MaximumLengthExceeded(lst.len()).into()),
             false => Ok(CqlStringList { container: lst }),
         }
     }
 
-    pub fn try_from_iter<I, E, S>(v: I) -> Result<CqlStringList<'a>>
+    pub fn try_from_iter<'a, I, E, S>(v: I) -> Result<CqlStringList>
         where I: IntoIterator<IntoIter = E, Item = S>,
               E: Iterator<Item = S> + ExactSizeIterator,
               S: Into<&'a str>
@@ -79,7 +105,7 @@ impl<'a> CqlStringList<'a> {
         CqlStringList::try_from(res)
     }
 
-    pub unsafe fn unchecked_from(lst: Vec<CqlString<'a>>) -> CqlStringList<'a> {
+    pub unsafe fn unchecked_from(lst: Vec<CqlString>) -> CqlStringList {
         CqlStringList { container: lst }
     }
 
@@ -87,27 +113,27 @@ impl<'a> CqlStringList<'a> {
         self.container.len() as u16
     }
 
-    pub fn iter(&'a self) -> ::std::slice::Iter<'a, CqlString<'a>> {
+    pub fn iter(&self) -> ::std::slice::Iter<CqlString> {
         self.container.iter()
     }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct CqlStringMap<'a> {
-    container: HashMap<CqlString<'a>, CqlString<'a>>,
+pub struct CqlStringMap {
+    container: HashMap<CqlString, CqlString>,
 }
 
-impl<'a> CqlStringMap<'a> {
-    pub fn try_from(map: HashMap<CqlString<'a>, CqlString<'a>>) -> Result<CqlStringMap<'a>> {
+impl CqlStringMap {
+    pub fn try_from(map: HashMap<CqlString, CqlString>) -> Result<CqlStringMap> {
         match map.len() > u16::max_value() as usize {
             true => Err(ErrorKind::MaximumLengthExceeded(map.len()).into()),
             false => Ok(CqlStringMap { container: map }),
         }
     }
 
-    pub fn try_from_iter<I, E>(v: I) -> Result<CqlStringMap<'a>>
-        where I: IntoIterator<IntoIter = E, Item = (CqlString<'a>, CqlString<'a>)>,
-              E: Iterator<Item = (CqlString<'a>, CqlString<'a>)> + ExactSizeIterator
+    pub fn try_from_iter<I, E>(v: I) -> Result<CqlStringMap>
+        where I: IntoIterator<IntoIter = E, Item = (CqlString, CqlString)>,
+              E: Iterator<Item = (CqlString, CqlString)> + ExactSizeIterator
     {
         let v = v.into_iter();
         let mut res = HashMap::with_capacity(v.len());
@@ -117,7 +143,7 @@ impl<'a> CqlStringMap<'a> {
         CqlStringMap::try_from(res)
     }
 
-    pub unsafe fn unchecked_from(lst: HashMap<CqlString<'a>, CqlString<'a>>) -> CqlStringMap<'a> {
+    pub unsafe fn unchecked_from(lst: HashMap<CqlString, CqlString>) -> CqlStringMap {
         CqlStringMap { container: lst }
     }
 
@@ -125,28 +151,27 @@ impl<'a> CqlStringMap<'a> {
         self.container.len() as u16
     }
 
-    pub fn iter(&'a self) -> ::std::collections::hash_map::Iter<'a, CqlString<'a>, CqlString<'a>> {
+    pub fn iter(&self) -> ::std::collections::hash_map::Iter<CqlString, CqlString> {
         self.container.iter()
     }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub struct CqlStringMultiMap<'a> {
-    container: HashMap<CqlString<'a>, CqlStringList<'a>>,
+pub struct CqlStringMultiMap {
+    container: HashMap<CqlString, CqlStringList>,
 }
 
-impl<'a> CqlStringMultiMap<'a> {
-    pub fn try_from(map: HashMap<CqlString<'a>, CqlStringList<'a>>)
-                    -> Result<CqlStringMultiMap<'a>> {
+impl<'a> CqlStringMultiMap {
+    pub fn try_from(map: HashMap<CqlString, CqlStringList>) -> Result<CqlStringMultiMap> {
         match map.len() > u16::max_value() as usize {
             true => Err(ErrorKind::MaximumLengthExceeded(map.len()).into()),
             false => Ok(CqlStringMultiMap { container: map }),
         }
     }
 
-    pub fn try_from_iter<I, E>(v: I) -> Result<CqlStringMultiMap<'a>>
-        where I: IntoIterator<IntoIter = E, Item = (CqlString<'a>, CqlStringList<'a>)>,
-              E: Iterator<Item = (CqlString<'a>, CqlStringList<'a>)> + ExactSizeIterator
+    pub fn try_from_iter<I, E>(v: I) -> Result<CqlStringMultiMap>
+        where I: IntoIterator<IntoIter = E, Item = (CqlString, CqlStringList)>,
+              E: Iterator<Item = (CqlString, CqlStringList)> + ExactSizeIterator
     {
         let v = v.into_iter();
         let mut res = HashMap::with_capacity(v.len());
@@ -156,8 +181,7 @@ impl<'a> CqlStringMultiMap<'a> {
         CqlStringMultiMap::try_from(res)
     }
 
-    pub unsafe fn unchecked_from(lst: HashMap<CqlString<'a>, CqlStringList<'a>>)
-                                 -> CqlStringMultiMap<'a> {
+    pub unsafe fn unchecked_from(lst: HashMap<CqlString, CqlStringList>) -> CqlStringMultiMap {
         CqlStringMultiMap { container: lst }
     }
 
@@ -165,8 +189,7 @@ impl<'a> CqlStringMultiMap<'a> {
         self.container.len() as u16
     }
 
-    pub fn iter(&'a self)
-                -> ::std::collections::hash_map::Iter<'a, CqlString<'a>, CqlStringList<'a>> {
+    pub fn iter(&'a self) -> ::std::collections::hash_map::Iter<CqlString, CqlStringList> {
         self.container.iter()
     }
 }
@@ -189,6 +212,8 @@ mod test {
         let s = CqlString::try_from("Hello üß").unwrap();
         let mut buf = Vec::new();
         encode::string(&s, &mut buf);
+
+        println!("buf = {:?}", buf);
 
         assert_finished_and_eq!(decode::string(&buf), s);
     }

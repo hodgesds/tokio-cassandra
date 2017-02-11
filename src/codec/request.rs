@@ -24,17 +24,17 @@ pub trait CqlEncode {
     fn encode(&self, f: &mut Vec<u8>) -> Result<usize>;
 }
 
-pub enum Message<'a> {
+pub enum Message {
     Options,
-    Startup(StartupMessage<'a>),
+    Startup(StartupMessage),
 }
 
-pub struct StartupMessage<'a> {
-    pub cql_version: CqlString<'a>,
-    pub compression: Option<CqlString<'a>>,
+pub struct StartupMessage {
+    pub cql_version: CqlString,
+    pub compression: Option<CqlString>,
 }
 
-impl<'a> CqlEncode for StartupMessage<'a> {
+impl CqlEncode for StartupMessage {
     fn encode(&self, buf: &mut Vec<u8>) -> Result<usize> {
         let mut sm = HashMap::new();
         sm.insert(unsafe { CqlString::unchecked_from("CQL_VERSION") },
@@ -50,7 +50,7 @@ impl<'a> CqlEncode for StartupMessage<'a> {
     }
 }
 
-impl<'a> Message<'a> {
+impl Message {
     fn opcode(&self) -> OpCode {
         use self::Message::*;
         match self {
@@ -65,7 +65,7 @@ impl<'a> Message<'a> {
 }
 
 
-impl<'a> CqlEncode for Message<'a> {
+impl CqlEncode for Message {
     fn encode(&self, buf: &mut Vec<u8>) -> Result<usize> {
 
         match *self {

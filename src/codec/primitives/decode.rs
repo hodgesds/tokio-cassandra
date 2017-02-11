@@ -9,6 +9,7 @@ named!(pub string(&[u8]) -> CqlString, do_parse!(
         (unsafe { CqlString::unchecked_from(str) })
     )
 );
+
 named!(pub string_list(&[u8]) -> CqlStringList, do_parse!(
         l: short >>
         list: count!(string, l as usize) >>
