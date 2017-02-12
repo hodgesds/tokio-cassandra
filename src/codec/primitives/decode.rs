@@ -139,6 +139,7 @@ mod test {
                    Incomplete(Size(5)));
     }
 
+    // TODO: move tests from types here, cause it seems very similar
 
     //
     //    #[test]
