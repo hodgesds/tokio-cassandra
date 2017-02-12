@@ -1,5 +1,7 @@
 #[macro_use]
 extern crate error_chain;
+#[macro_use]
+extern crate quick_error;
 extern crate byteorder;
 
 #[cfg(feature = "with-serde")]
