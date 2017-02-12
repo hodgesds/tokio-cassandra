@@ -38,6 +38,24 @@ pub fn short(mut i: EasyBuf) -> ParseResult<u16> {
     Ok((i, short))
 }
 
+pub fn int(mut i: EasyBuf) -> ParseResult<i32> {
+    if i.len() < 4 {
+        return Err(Incomplete(Size(4)));
+    }
+    let databuf = i.drain_to(4);
+    let int = BigEndian::read_i32(databuf.as_slice());
+    Ok((i, int))
+}
+
+pub fn long(mut i: EasyBuf) -> ParseResult<i64> {
+    if i.len() < 8 {
+        return Err(Incomplete(Size(8)));
+    }
+    let databuf = i.drain_to(8);
+    let long = BigEndian::read_i64(databuf.as_slice());
+    Ok((i, long))
+}
+
 pub fn string(buf: EasyBuf) -> ParseResult<CqlString<EasyBuf>> {
     let (mut buf, len) = short(buf)?;
     if buf.len() < len as usize {
@@ -92,8 +110,6 @@ pub fn string_multimap(i: EasyBuf) -> ParseResult<CqlStringMultiMap<EasyBuf>> {
 mod test {
     use super::*;
     use super::super::encode;
-    //    use byteorder::{ByteOrder, BigEndian};
-    //    use tokio_core::io::EasyBuf;
 
     #[test]
     fn short_incomplete() {
@@ -110,6 +126,40 @@ mod test {
         let (nb, res) = short(b).unwrap();
         assert_eq!(res, expected);
         assert_eq!(nb.as_slice(), &b2.as_slice()[2..]);
+    }
+
+    #[test]
+    fn int_incomplete() {
+        assert_eq!(int(vec![0].into()).unwrap_err(), Incomplete(Size(4)));
+    }
+
+    #[test]
+    fn int_complete() {
+        use std::ops::DerefMut;
+        let mut b: EasyBuf = vec![0u8, 1, 2, 3, 4].into();
+        let b2 = b.clone();
+        let expected = -16723;
+        BigEndian::write_i32(&mut b.get_mut().deref_mut(), expected);
+        let (nb, res) = int(b).unwrap();
+        assert_eq!(res, expected);
+        assert_eq!(nb.as_slice(), &b2.as_slice()[4..]);
+    }
+
+    #[test]
+    fn long_incomplete() {
+        assert_eq!(long(vec![0].into()).unwrap_err(), Incomplete(Size(8)));
+    }
+
+    #[test]
+    fn long_complete() {
+        use std::ops::DerefMut;
+        let mut b: EasyBuf = vec![0u8, 1, 2, 3, 4, 5, 6, 7, 8].into();
+        let b2 = b.clone();
+        let expected = -16723;
+        BigEndian::write_i64(&mut b.get_mut().deref_mut(), expected);
+        let (nb, res) = long(b).unwrap();
+        assert_eq!(res, expected);
+        assert_eq!(nb.as_slice(), &b2.as_slice()[8..]);
     }
 
     #[test]

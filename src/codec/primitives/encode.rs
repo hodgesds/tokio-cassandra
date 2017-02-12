@@ -7,6 +7,18 @@ pub fn short(v: u16) -> [u8; 2] {
     bytes
 }
 
+pub fn int(v: i32) -> [u8; 4] {
+    let mut bytes = [0u8; 4];
+    BigEndian::write_i32(&mut bytes[..], v);
+    bytes
+}
+
+pub fn long(v: i64) -> [u8; 8] {
+    let mut bytes = [0u8; 8];
+    BigEndian::write_i64(&mut bytes[..], v);
+    bytes
+}
+
 pub fn string<T>(s: &CqlString<T>, buf: &mut Vec<u8>)
     where T: AsRef<[u8]>
 {

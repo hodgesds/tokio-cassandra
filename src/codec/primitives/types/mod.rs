@@ -73,6 +73,26 @@ mod test {
     }
 
     #[test]
+    fn int() {
+        let expected: i32 = -342;
+        let buf = encode::int(expected);
+        let buf = Vec::from(&buf[..]).into();
+
+        let res = decode::int(buf);
+        assert_eq!(res.unwrap().1, expected);
+    }
+
+    #[test]
+    fn long() {
+        let expected: i64 = -342;
+        let buf = encode::long(expected);
+        let buf = Vec::from(&buf[..]).into();
+
+        let res = decode::long(buf);
+        assert_eq!(res.unwrap().1, expected);
+    }
+
+    #[test]
     fn string() {
         let s = CqlString::try_from("Hello üß").unwrap();
         let mut buf = Vec::new();
