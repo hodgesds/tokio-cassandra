@@ -16,4 +16,8 @@ impl<'a> CqlString<'a> {
                           buf: buf,
                       })
     }
+
+    pub fn resolve(master: &[u8]) -> indexed::CqlString {
+        unimplemented!();
+    }
 }

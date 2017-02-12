@@ -1,4 +1,4 @@
-use super::hybrid::CqlString;
+use super::nom::CqlString;
 use nom::be_u16;
 
 named!(pub short(&[u8]) -> u16, call!(be_u16));
