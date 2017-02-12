@@ -23,26 +23,28 @@ impl CqlString {
 /// allocation
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct CqlStringList {
-    container: Vec<CqlString>,
+    pub at: usize,
+    pub len: u16,
 }
 
-impl CqlStringList {
-    pub fn borrowed<'a>(&self, buf: &'a [u8]) -> borrowed::CqlStringList<'a> {
-        unsafe {
-            borrowed::CqlStringList::unchecked_from(self.container
-                .iter()
-                .map(|s| s.borrowed(&buf[2..]))
-                .collect())
-        }
-    }
-}
+//impl CqlStringList {
+//    pub fn borrowed<'a>(&self, buf: &'a [u8]) -> borrowed::CqlStringList<'a> {
+//        unsafe {
+//            borrowed::CqlStringList::unchecked_from(self.container
+//                .iter()
+//                .map(|s| s.borrowed(&buf[2..]))
+//                .collect())
+//        }
+//    }
+//}
 
 #[cfg(test)]
 mod test {
-    use std::iter::FromIterator;
-    use super::{CqlStringList, CqlString};
+    //    use std::iter::FromIterator;
+    //    use super::{CqlStringList, CqlString};
+    use super::CqlString;
     use super::super::borrowed;
-    use super::super::super::encode;
+    //    use super::super::super::encode;
 
     #[test]
     fn as_cqlstring() {
@@ -57,23 +59,23 @@ mod test {
                    borrowed::CqlString::try_from(&s[1..]).unwrap())
     }
 
-    #[test]
-    fn as_cqlstringlist_iterator() {
-        let vs = vec!["hello", "world"];
-        let v = borrowed::CqlStringList::try_from_iter(vs.iter().cloned()).unwrap();
-        let ofs = 5;
-        let mut buf = Vec::from_iter(0..ofs);
-        encode::string_list(&v, &mut buf);
-        let iv = CqlStringList {
-            container: vec![CqlString {
-                                at: ofs as usize + 2,
-                                len: vs[0].len() as u16,
-                            },
-                            CqlString {
-                                at: ofs as usize + 2 * 2 + vs[0].len(),
-                                len: vs[1].len() as u16,
-                            }],
-        };
-        assert_eq!(iv.borrowed(&buf), v);
-    }
+    //    #[test]
+    //    fn as_cqlstringlist_iterator() {
+    //        let vs = vec!["hello", "world"];
+    //        let v = borrowed::CqlStringList::try_from_iter(vs.iter().cloned()).unwrap();
+    //        let ofs = 5;
+    //        let mut buf = Vec::from_iter(0..ofs);
+    //        encode::string_list(&v, &mut buf);
+    //        let iv = CqlStringList {
+    //            container: vec![CqlString {
+    //                                at: ofs as usize + 2,
+    //                                len: vs[0].len() as u16,
+    //                            },
+    //                            CqlString {
+    //                                at: ofs as usize + 2 * 2 + vs[0].len(),
+    //                                len: vs[1].len() as u16,
+    //                            }],
+    //        };
+    //        assert_eq!(iv.borrowed(&buf), v);
+    //    }
 }

@@ -45,6 +45,19 @@ pub fn string(ofs: usize, i: &[u8]) -> ParseResult<indexed::CqlString> {
         }))
 }
 
+pub fn string_list(ofs: usize, i: &[u8]) -> ParseResult<indexed::CqlStringList> {
+    let (mut i, s) = short(i)?;
+    for _ in 0..s {
+        let (ni, _) = string(0, i).map_err(|_| Incomplete(Unknown))?;
+        i = ni;
+    }
+    Ok((i,
+        indexed::CqlStringList {
+            len: s,
+            at: ofs + 2,
+        }))
+}
+
 
 #[cfg(test)]
 mod test {
@@ -66,10 +79,10 @@ mod test {
     }
 
     #[test]
-    fn string_complete() {
+    fn string_incomplete_and_complete() {
         let s = borrowed::CqlString::try_from("hello").unwrap();
-        let ofs = 5;
-        let mut b: Vec<_> = (0u8..5).collect();
+        let ofs = 5usize;
+        let mut b: Vec<_> = (0u8..ofs as u8).collect();
         encode::string(&s, &mut b);
         b.extend(0..2);
 
@@ -82,4 +95,25 @@ mod test {
                            len: 5,
                        })));
     }
+
+    #[test]
+    fn string_list_incomplete_and_complete() {
+        let vs = vec!["hello", "world"];
+        let v = borrowed::CqlStringList::try_from_iter(vs.iter().cloned()).unwrap();
+        let ofs = 5usize;
+        let mut b: Vec<_> = (0u8..ofs as u8).collect();
+        encode::string_list(&v, &mut b);
+        let sls = b.len() - ofs;
+        b.extend(1..2);
+
+        assert_eq!(string_list(ofs, &b[ofs..ofs + 1]), Err(Incomplete(Size(2))));
+        assert_eq!(string_list(ofs, &b[ofs..ofs + 2]), Err(Incomplete(Unknown)));
+        assert_eq!(string_list(ofs, &b[ofs..]),
+                   Ok((&b[ofs + sls..],
+                       indexed::CqlStringList {
+                           at: ofs + 2,
+                           len: 2,
+                       })));
+    }
+
 }
