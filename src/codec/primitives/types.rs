@@ -13,20 +13,10 @@ error_chain! {
     }
 }
 
-//impl<T> ::std::fmt::Debug for AsRef<T>
-//    where T: Sized + ::std::fmt::Debug
-//{
-//    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::result::Result<(), ::std::fmt::Error> {
-//        self.as_ref().fmt(f)
-//    }
-//}
-
 #[derive(Clone)]
 pub struct CqlString<T>
     where T: AsRef<[u8]>
 {
-    start: usize,
-    end: usize,
     buf: T,
 }
 
@@ -52,7 +42,7 @@ impl<T> AsRef<str> for CqlString<T>
     where T: AsRef<[u8]>
 {
     fn as_ref(&self) -> &str {
-        ::std::str::from_utf8(&self.buf.as_ref()[self.start..self.end]).unwrap()
+        ::std::str::from_utf8(&self.buf.as_ref()).unwrap()
     }
 }
 
@@ -90,11 +80,7 @@ impl<T, U> HasLength for HashMap<T, U>
 
 impl CqlString<::tokio_core::io::EasyBuf> {
     pub fn from(buf: ::tokio_core::io::EasyBuf) -> CqlString<::tokio_core::io::EasyBuf> {
-        CqlString {
-            start: 0,
-            end: buf.len(),
-            buf: buf,
-        }
+        CqlString { buf: buf }
     }
 }
 
@@ -118,25 +104,14 @@ pub trait CqlFrom<C, V>
 impl<'a> CqlFrom<CqlString<EasyBuf>, &'a str> for CqlString<EasyBuf> {
     unsafe fn unchecked_from(s: &str) -> CqlString<EasyBuf> {
         let vec = Vec::from(s);
-        let len = vec.len();
-        CqlString {
-            buf: vec.into(),
-            start: 0,
-            end: len,
-        }
+        CqlString { buf: vec.into() }
     }
 }
 
 impl<'a> CqlFrom<CqlString<Vec<u8>>, &'a str> for CqlString<Vec<u8>> {
     unsafe fn unchecked_from(s: &str) -> CqlString<Vec<u8>> {
         let vec = Vec::from(s);
-        let len = vec.len();
-
-        CqlString {
-            buf: vec,
-            start: 0,
-            end: len,
-        }
+        CqlString { buf: vec }
     }
 }
 
@@ -144,7 +119,7 @@ impl<T> CqlString<T>
     where T: AsRef<[u8]>
 {
     pub fn len(&self) -> u16 {
-        (self.end - self.start) as u16 // TODO: safe cast
+        self.buf.as_ref().len() as u16 // TODO: safe cast
     }
 
     pub fn as_bytes(&self) -> &[u8] {
@@ -154,11 +129,19 @@ impl<T> CqlString<T>
 
 /// TODO: zero copy - implement it as offset to beginning of vec to CqlStrings to prevent Vec
 /// allocation
-#[derive(Debug, Eq, PartialEq, Clone)]
+#[derive(Debug, Eq, Clone)]
 pub struct CqlStringList<T>
     where T: AsRef<[u8]>
 {
     container: Vec<CqlString<T>>,
+}
+
+impl<T> PartialEq for CqlStringList<T>
+    where T: AsRef<[u8]>
+{
+    fn eq(&self, other: &CqlStringList<T>) -> bool {
+        self.container == other.container
+    }
 }
 
 impl<T> CqlFrom<CqlStringList<T>, Vec<CqlString<T>>> for CqlStringList<T>
@@ -211,11 +194,19 @@ impl<T> CqlStringList<T>
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, Eq, Clone)]
 pub struct CqlStringMap<T>
     where T: AsRef<[u8]>
 {
     container: HashMap<CqlString<T>, CqlString<T>>,
+}
+
+impl<T> PartialEq for CqlStringMap<T>
+    where T: AsRef<[u8]>
+{
+    fn eq(&self, other: &CqlStringMap<T>) -> bool {
+        self.container == other.container
+    }
 }
 
 impl<T> CqlFrom<CqlStringMap<T>, HashMap<CqlString<T>, CqlString<T>>> for CqlStringMap<T>
@@ -250,11 +241,19 @@ impl<T> CqlStringMap<T>
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, Eq, Clone)]
 pub struct CqlStringMultiMap<T>
     where T: AsRef<[u8]>
 {
     container: HashMap<CqlString<T>, CqlStringList<T>>,
+}
+
+impl<T> PartialEq for CqlStringMultiMap<T>
+    where T: AsRef<[u8]>
+{
+    fn eq(&self, other: &CqlStringMultiMap<T>) -> bool {
+        self.container == other.container
+    }
 }
 
 impl<T> CqlFrom<CqlStringMultiMap<T>, HashMap<CqlString<T>, CqlStringList<T>>>
@@ -307,7 +306,7 @@ mod test {
 
     #[test]
     fn string() {
-        let s: CqlString<Vec<u8>> = CqlString::try_from("Hello üß").unwrap();
+        let s = CqlString::try_from("Hello üß").unwrap();
         let mut buf = Vec::new();
         encode::string(&s, &mut buf);
 
@@ -315,7 +314,7 @@ mod test {
 
         println!("buf = {:?}", buf);
         let res = decode::string(buf);
-        assert_eq!(res.unwrap().1.as_ref(), s.as_ref());
+        assert_eq!(res.unwrap().1, s);
     }
 
     #[test]
@@ -325,7 +324,7 @@ mod test {
             .map(|&s| CqlString::try_from(s))
             .map(Result::unwrap)
             .collect();
-        let sl: CqlStringList<Vec<u8>> = CqlStringList::try_from(sl).unwrap();
+        let sl = CqlStringList::try_from(sl).unwrap();
 
         let mut buf = Vec::new();
         encode::string_list(&sl, &mut buf);
@@ -333,32 +332,33 @@ mod test {
 
         println!("buf = {:?}", buf);
         let res = decode::string_list(buf).unwrap().1;
-        assert_eq!(format!("{:?}", res), format!("{:?}", sl));
+        //        assert_eq!(format!("{:?}", res), format!("{:?}", sl));
+        assert_eq!(res, sl);
     }
 
     #[test]
     fn string_map() {
-        let sm: CqlStringMap<Vec<_>> =
-            CqlStringMap::try_from_iter(vec![(CqlString::try_from("a").unwrap(),
-                                              CqlString::try_from("av").unwrap()),
-                                             (CqlString::try_from("a").unwrap(),
-                                              CqlString::try_from("av").unwrap())])
-                .unwrap();
+        let sm = CqlStringMap::try_from_iter(vec![(CqlString::try_from("a").unwrap(),
+                                                   CqlString::try_from("av").unwrap()),
+                                                  (CqlString::try_from("a").unwrap(),
+                                                   CqlString::try_from("av").unwrap())])
+            .unwrap();
 
         let mut buf = Vec::new();
         encode::string_map(&sm, &mut buf);
         let buf = Vec::from(&buf[..]).into();
 
         let res = decode::string_map(buf).unwrap().1;
-        assert_eq!(format!("{:?}", res), format!("{:?}", sm));
+        //        assert_eq!(format!("{:?}", res), format!("{:?}", sm));
+        assert_eq!(res, sm);
     }
 
     #[test]
     fn string_multimap() {
         let sla = ["a", "b"];
         let slb = ["c", "d"];
-        let csl1 = CqlStringList::try_from_iter(sla.iter().cloned()).unwrap();
-        let csl2 = CqlStringList::try_from_iter(slb.iter().cloned()).unwrap();
+        let csl1 = CqlStringList::try_from_iter_easy(sla.iter().cloned()).unwrap();
+        let csl2 = CqlStringList::try_from_iter_easy(slb.iter().cloned()).unwrap();
         let smm = CqlStringMultiMap::try_from_iter(vec![(CqlString::try_from("a").unwrap(), csl1),
                                                         (CqlString::try_from("b").unwrap(), csl2)])
             .unwrap();
@@ -369,6 +369,7 @@ mod test {
 
         let res = decode::string_multimap(buf).unwrap().1;
         // TODO: TEST without order!!! Maybe Test utils for Rust
-        assert_eq!(format!("{:?}", res), format!("{:?}", smm));
+        //        assert_eq!(format!("{:?}", res), format!("{:?}", smm));
+        assert_eq!(res, smm);
     }
 }
