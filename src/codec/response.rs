@@ -37,7 +37,7 @@ struct _Frame {
 }
 
 impl CqlDecode<SupportedMessage> for SupportedMessage {
-    fn decode(buf: &mut ::tokio_core::io::EasyBuf) -> Result<SupportedMessage> {
+    fn decode(buf: ::tokio_core::io::EasyBuf) -> Result<SupportedMessage> {
         decode::string_multimap(buf)
             .map(|d| d.1.into())
             .map_err(|err| ErrorKind::ParserError(format!("{}", err)).into())
@@ -51,7 +51,7 @@ impl From<CqlStringMultiMap<::tokio_core::io::EasyBuf>> for SupportedMessage {
 }
 
 pub trait CqlDecode<T> {
-    fn decode(buf: &mut ::tokio_core::io::EasyBuf) -> Result<T>;
+    fn decode(buf: ::tokio_core::io::EasyBuf) -> Result<T>;
 }
 
 #[cfg(test)]
@@ -67,8 +67,8 @@ mod test {
     #[test]
     fn decode_supported_message() {
         let msg = include_bytes!("../../tests/fixtures/v3/responses/supported.msg");
-        let mut buf = Vec::from(skip_header(&msg[..])).into();
-        let res = SupportedMessage::decode(&mut buf).unwrap();
+        let buf = Vec::from(skip_header(&msg[..])).into();
+        let res = SupportedMessage::decode(buf).unwrap();
 
         let sla = ["3.2.1"];
         let slb = ["snappy", "lz4"];

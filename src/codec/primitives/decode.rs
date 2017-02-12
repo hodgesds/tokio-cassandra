@@ -25,9 +25,9 @@ quick_error! {
 use self::Error::*;
 use self::Needed::*;
 
-pub type ParseResult<'a, T> = Result<(&'a mut EasyBuf, T), Error>;
+pub type ParseResult<T> = Result<(EasyBuf, T), Error>;
 
-pub fn short(i: &mut EasyBuf) -> ParseResult<u16> {
+pub fn short(mut i: EasyBuf) -> ParseResult<u16> {
     if i.len() < 2 {
         return Err(Incomplete(Size(2)));
     }
@@ -36,43 +36,48 @@ pub fn short(i: &mut EasyBuf) -> ParseResult<u16> {
     Ok((i, short))
 }
 
-pub fn string(buf: &mut EasyBuf) -> ParseResult<CqlString<EasyBuf>> {
-    let (buf, len) = short(buf)?;
+pub fn string(buf: EasyBuf) -> ParseResult<CqlString<EasyBuf>> {
+    let (mut buf, len) = short(buf)?;
     let str = CqlString::from(buf.drain_to(len as usize));
     Ok((buf, str))
 }
 
-pub fn string_list(buf: &mut EasyBuf) -> ParseResult<CqlStringList<EasyBuf>> {
-    let (buf, len) = short(buf)?;
+pub fn string_list(i: EasyBuf) -> ParseResult<CqlStringList<EasyBuf>> {
+    let (mut buf, len) = short(i)?;
     let mut v = Vec::new();
     for _ in 0..len {
-        let (_, str) = string(buf)?;
+        let (nb, str) = string(buf)?;
+        buf = nb;
         v.push(str);
     }
     let lst = unsafe { CqlStringList::unchecked_from(v) };
     Ok((buf, lst))
 }
 
-pub fn string_map(buf: &mut EasyBuf) -> ParseResult<CqlStringMap<EasyBuf>> {
-    let (buf, len) = short(buf)?;
+pub fn string_map(i: EasyBuf) -> ParseResult<CqlStringMap<EasyBuf>> {
+    let (mut buf, len) = short(i)?;
     let mut map = HashMap::new();
 
     for _ in 0..len {
-        let (_, key) = string(buf)?;
-        let (_, value) = string(buf)?;
+        let (nb, key) = string(buf)?;
+        buf = nb;
+        let (nb, value) = string(buf)?;
+        buf = nb;
         map.insert(key, value);
     }
 
     Ok((buf, unsafe { CqlStringMap::unchecked_from(map) }))
 }
 
-pub fn string_multimap(buf: &mut EasyBuf) -> ParseResult<CqlStringMultiMap<EasyBuf>> {
-    let (buf, len) = short(buf)?;
+pub fn string_multimap(i: EasyBuf) -> ParseResult<CqlStringMultiMap<EasyBuf>> {
+    let (mut buf, len) = short(i)?;
     let mut map = HashMap::new();
 
     for _ in 0..len {
-        let (_, key) = string(buf)?;
-        let (_, value) = string_list(buf)?;
+        let (nb, key) = string(buf)?;
+        buf = nb;
+        let (nb, value) = string_list(buf)?;
+        buf = nb;
         map.insert(key, value);
     }
 
@@ -82,12 +87,12 @@ pub fn string_multimap(buf: &mut EasyBuf) -> ParseResult<CqlStringMultiMap<EasyB
 mod test {
     use super::*;
     //    use super::super::{indexed, encode, borrowed};
-    use byteorder::{ByteOrder, BigEndian};
-    use tokio_core::io::EasyBuf;
+    //    use byteorder::{ByteOrder, BigEndian};
+    //    use tokio_core::io::EasyBuf;
 
     # [test]
     fn short_incomplete() {
-        assert_eq!(short(&mut vec![0].into()).unwrap_err(), Incomplete(Size(2)));
+        assert_eq!(short(vec![0].into()).unwrap_err(), Incomplete(Size(2)));
     }
 
     #[test]
@@ -97,7 +102,7 @@ mod test {
         let b2 = b.clone();
         let expected = 16723;
         BigEndian::write_u16(&mut b.get_mut().deref_mut(), expected);
-        let (nb, res) = short(&mut b).unwrap();
+        let (nb, res) = short(b).unwrap();
         assert_eq!(res, expected);
         assert_eq!(nb.as_slice(), &b2.as_slice()[2..]);
     }

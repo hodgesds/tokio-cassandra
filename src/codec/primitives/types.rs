@@ -299,9 +299,9 @@ mod test {
     fn short() {
         let expected: u16 = 342;
         let buf = encode::short(expected);
-        let mut buf = Vec::from(&buf[..]).into();
+        let buf = Vec::from(&buf[..]).into();
 
-        let res = decode::short(&mut buf);
+        let res = decode::short(buf);
         assert_eq!(res.unwrap().1, expected);
     }
 
@@ -311,10 +311,10 @@ mod test {
         let mut buf = Vec::new();
         encode::string(&s, &mut buf);
 
-        let mut buf = Vec::from(&buf[..]).into();
+        let buf = Vec::from(&buf[..]).into();
 
         println!("buf = {:?}", buf);
-        let res = decode::string(&mut buf);
+        let res = decode::string(buf);
         assert_eq!(res.unwrap().1.as_ref(), s.as_ref());
     }
 
@@ -329,10 +329,10 @@ mod test {
 
         let mut buf = Vec::new();
         encode::string_list(&sl, &mut buf);
-        let mut buf = Vec::from(&buf[..]).into();
+        let buf = Vec::from(&buf[..]).into();
 
         println!("buf = {:?}", buf);
-        let res = decode::string_list(&mut buf).unwrap().1;
+        let res = decode::string_list(buf).unwrap().1;
         assert_eq!(format!("{:?}", res), format!("{:?}", sl));
     }
 
@@ -347,9 +347,9 @@ mod test {
 
         let mut buf = Vec::new();
         encode::string_map(&sm, &mut buf);
-        let mut buf = Vec::from(&buf[..]).into();
+        let buf = Vec::from(&buf[..]).into();
 
-        let res = decode::string_map(&mut buf).unwrap().1;
+        let res = decode::string_map(buf).unwrap().1;
         assert_eq!(format!("{:?}", res), format!("{:?}", sm));
     }
 
@@ -365,9 +365,9 @@ mod test {
 
         let mut buf = Vec::new();
         encode::string_multimap(&smm, &mut buf);
-        let mut buf = Vec::from(&buf[..]).into();
+        let buf = Vec::from(&buf[..]).into();
 
-        let res = decode::string_multimap(&mut buf).unwrap().1;
+        let res = decode::string_multimap(buf).unwrap().1;
         // TODO: TEST without order!!! Maybe Test utils for Rust
         assert_eq!(format!("{:?}", res), format!("{:?}", smm));
     }
