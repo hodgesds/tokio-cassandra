@@ -59,7 +59,6 @@ mod test {
     use codec::header::Header;
     use codec::primitives::{CqlFrom, CqlStringMultiMap, CqlString, CqlStringList};
     use super::*;
-    use tokio_core::io::EasyBuf;
 
     fn skip_header(b: &[u8]) -> &[u8] {
         &b[Header::encoded_len()..]

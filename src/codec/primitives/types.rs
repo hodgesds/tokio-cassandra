@@ -13,35 +13,17 @@ error_chain! {
     }
 }
 
-pub trait BorrowableSlice<T>
-    where T: ?Sized
-{
-    fn get_ref(&self) -> &T;
-}
-
-//impl<T> ::std::fmt::Debug for BorrowableSlice<T>
+//impl<T> ::std::fmt::Debug for AsRef<T>
 //    where T: Sized + ::std::fmt::Debug
 //{
 //    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::result::Result<(), ::std::fmt::Error> {
-//        self.get_ref().fmt(f)
+//        self.as_ref().fmt(f)
 //    }
 //}
 
-impl BorrowableSlice<[u8]> for Vec<u8> {
-    fn get_ref(&self) -> &[u8] {
-        self.as_ref()
-    }
-}
-
-impl BorrowableSlice<[u8]> for EasyBuf {
-    fn get_ref(&self) -> &[u8] {
-        self.as_ref()
-    }
-}
-
 #[derive(Clone)]
 pub struct CqlString<T>
-    where T: BorrowableSlice<[u8]>
+    where T: AsRef<[u8]>
 {
     start: usize,
     end: usize,
@@ -49,7 +31,7 @@ pub struct CqlString<T>
 }
 
 impl<T> Debug for CqlString<T>
-    where T: BorrowableSlice<[u8]>
+    where T: AsRef<[u8]>
 {
     fn fmt(&self, f: &mut Formatter) -> ::std::result::Result<(), ::std::fmt::Error> {
         self.as_ref().fmt(f)
@@ -57,25 +39,25 @@ impl<T> Debug for CqlString<T>
 }
 
 impl<T> PartialEq for CqlString<T>
-    where T: BorrowableSlice<[u8]>
+    where T: AsRef<[u8]>
 {
     fn eq(&self, other: &CqlString<T>) -> bool {
         self.as_ref() == other.as_ref()
     }
 }
 
-impl<T> Eq for CqlString<T> where T: BorrowableSlice<[u8]> {}
+impl<T> Eq for CqlString<T> where T: AsRef<[u8]> {}
 
 impl<T> AsRef<str> for CqlString<T>
-    where T: BorrowableSlice<[u8]>
+    where T: AsRef<[u8]>
 {
     fn as_ref(&self) -> &str {
-        ::std::str::from_utf8(&self.buf.get_ref()[self.start..self.end]).unwrap()
+        ::std::str::from_utf8(&self.buf.as_ref()[self.start..self.end]).unwrap()
     }
 }
 
 impl<T> Hash for CqlString<T>
-    where T: BorrowableSlice<[u8]>
+    where T: AsRef<[u8]>
 {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.as_ref().hash(state)
@@ -159,14 +141,14 @@ impl<'a> CqlFrom<CqlString<Vec<u8>>, &'a str> for CqlString<Vec<u8>> {
 }
 
 impl<T> CqlString<T>
-    where T: BorrowableSlice<[u8]>
+    where T: AsRef<[u8]>
 {
     pub fn len(&self) -> u16 {
         (self.end - self.start) as u16 // TODO: safe cast
     }
 
     pub fn as_bytes(&self) -> &[u8] {
-        self.buf.get_ref()
+        self.buf.as_ref()
     }
 }
 
@@ -174,13 +156,13 @@ impl<T> CqlString<T>
 /// allocation
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub struct CqlStringList<T>
-    where T: BorrowableSlice<[u8]>
+    where T: AsRef<[u8]>
 {
     container: Vec<CqlString<T>>,
 }
 
 impl<T> CqlFrom<CqlStringList<T>, Vec<CqlString<T>>> for CqlStringList<T>
-    where T: BorrowableSlice<[u8]>
+    where T: AsRef<[u8]>
 {
     unsafe fn unchecked_from(lst: Vec<CqlString<T>>) -> CqlStringList<T> {
         CqlStringList { container: lst }
@@ -218,7 +200,7 @@ impl CqlStringList<Vec<u8>> {
 }
 
 impl<T> CqlStringList<T>
-    where T: BorrowableSlice<[u8]>
+    where T: AsRef<[u8]>
 {
     pub fn len(&self) -> u16 {
         self.container.len() as u16
@@ -231,13 +213,13 @@ impl<T> CqlStringList<T>
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct CqlStringMap<T>
-    where T: BorrowableSlice<[u8]>
+    where T: AsRef<[u8]>
 {
     container: HashMap<CqlString<T>, CqlString<T>>,
 }
 
 impl<T> CqlFrom<CqlStringMap<T>, HashMap<CqlString<T>, CqlString<T>>> for CqlStringMap<T>
-    where T: BorrowableSlice<[u8]>
+    where T: AsRef<[u8]>
 {
     unsafe fn unchecked_from(map: HashMap<CqlString<T>, CqlString<T>>) -> CqlStringMap<T> {
         CqlStringMap { container: map }
@@ -245,7 +227,7 @@ impl<T> CqlFrom<CqlStringMap<T>, HashMap<CqlString<T>, CqlString<T>>> for CqlStr
 }
 
 impl<T> CqlStringMap<T>
-    where T: BorrowableSlice<[u8]>
+    where T: AsRef<[u8]>
 {
     pub fn try_from_iter<I, E>(v: I) -> Result<CqlStringMap<T>>
         where I: IntoIterator<IntoIter = E, Item = (CqlString<T>, CqlString<T>)>,
@@ -270,14 +252,14 @@ impl<T> CqlStringMap<T>
 
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct CqlStringMultiMap<T>
-    where T: BorrowableSlice<[u8]>
+    where T: AsRef<[u8]>
 {
     container: HashMap<CqlString<T>, CqlStringList<T>>,
 }
 
 impl<T> CqlFrom<CqlStringMultiMap<T>, HashMap<CqlString<T>, CqlStringList<T>>>
     for CqlStringMultiMap<T>
-    where T: BorrowableSlice<[u8]>
+    where T: AsRef<[u8]>
 {
     unsafe fn unchecked_from(map: HashMap<CqlString<T>, CqlStringList<T>>) -> CqlStringMultiMap<T> {
         CqlStringMultiMap { container: map }
@@ -285,7 +267,7 @@ impl<T> CqlFrom<CqlStringMultiMap<T>, HashMap<CqlString<T>, CqlStringList<T>>>
 }
 
 impl<T> CqlStringMultiMap<T>
-    where T: BorrowableSlice<[u8]>
+    where T: AsRef<[u8]>
 {
     pub fn try_from_iter<I, E>(v: I) -> Result<CqlStringMultiMap<T>>
         where I: IntoIterator<IntoIter = E, Item = (CqlString<T>, CqlStringList<T>)>,

@@ -1,5 +1,5 @@
 use byteorder::{ByteOrder, BigEndian};
-use super::{BorrowableSlice, CqlStringList, CqlString, CqlStringMap, CqlStringMultiMap};
+use super::{CqlStringList, CqlString, CqlStringMap, CqlStringMultiMap};
 
 pub fn short(v: u16) -> [u8; 2] {
     let mut bytes = [0u8; 2];
@@ -8,14 +8,14 @@ pub fn short(v: u16) -> [u8; 2] {
 }
 
 pub fn string<T>(s: &CqlString<T>, buf: &mut Vec<u8>)
-    where T: BorrowableSlice<[u8]>
+    where T: AsRef<[u8]>
 {
     buf.extend(&short(s.len())[..]);
     buf.extend(s.as_bytes());
 }
 
 pub fn string_list<T>(l: &CqlStringList<T>, buf: &mut Vec<u8>)
-    where T: BorrowableSlice<[u8]>
+    where T: AsRef<[u8]>
 {
     buf.extend(&short(l.len())[..]);
     for s in l.iter() {
@@ -24,7 +24,7 @@ pub fn string_list<T>(l: &CqlStringList<T>, buf: &mut Vec<u8>)
 }
 
 pub fn string_map<T>(m: &CqlStringMap<T>, buf: &mut Vec<u8>)
-    where T: BorrowableSlice<[u8]>
+    where T: AsRef<[u8]>
 {
     buf.extend(&short(m.len())[..]);
     for (k, v) in m.iter() {
@@ -34,7 +34,7 @@ pub fn string_map<T>(m: &CqlStringMap<T>, buf: &mut Vec<u8>)
 }
 
 pub fn string_multimap<T>(m: &CqlStringMultiMap<T>, buf: &mut Vec<u8>)
-    where T: BorrowableSlice<[u8]>
+    where T: AsRef<[u8]>
 {
     buf.extend(&short(m.len())[..]);
     for (k, lst) in m.iter() {
