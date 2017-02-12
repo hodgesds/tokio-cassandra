@@ -12,6 +12,8 @@ pub enum Needed {
     Size(usize),
 }
 
+
+// Maybe replace by error_chain
 quick_error! {
     #[derive(Debug, PartialEq, Eq, Clone)]
     pub enum Error {
@@ -38,6 +40,9 @@ pub fn short(mut i: EasyBuf) -> ParseResult<u16> {
 
 pub fn string(buf: EasyBuf) -> ParseResult<CqlString<EasyBuf>> {
     let (mut buf, len) = short(buf)?;
+    if buf.len() < len as usize {
+        return Err(Incomplete(Size(len as usize)));
+    }
     let str = CqlString::from(buf.drain_to(len as usize));
     Ok((buf, str))
 }
@@ -86,11 +91,11 @@ pub fn string_multimap(i: EasyBuf) -> ParseResult<CqlStringMultiMap<EasyBuf>> {
 
 mod test {
     use super::*;
-    //    use super::super::{indexed, encode, borrowed};
+    use super::super::encode;
     //    use byteorder::{ByteOrder, BigEndian};
     //    use tokio_core::io::EasyBuf;
 
-    # [test]
+    #[test]
     fn short_incomplete() {
         assert_eq!(short(vec![0].into()).unwrap_err(), Incomplete(Size(2)));
     }
@@ -107,23 +112,34 @@ mod test {
         assert_eq!(nb.as_slice(), &b2.as_slice()[2..]);
     }
 
-    //    #[test]
-    //    fn string_incomplete_and_complete() {
-    //        let s = borrowed::CqlString::try_from("hello").unwrap();
-    //        let ofs = 5usize;
-    //        let mut b: Vec<_> = (0u8..ofs as u8).collect();
-    //        encode::string(&s, &mut b);
-    //        b.extend(0..2);
-    //
-    //        assert_eq!(string(ofs, &b[ofs..ofs + 1]), Err(Incomplete(Size(2))));
-    //        assert_eq!(string(ofs, &b[ofs..ofs + 4]), Err(Incomplete(Size(5))));
-    //        assert_eq!(string(ofs, &b[ofs..]),
-    //        Ok((&b[ofs + 2 + 5..],
-    //            indexed::CqlString {
-    //                at: ofs + 2,
-    //                len: 5,
-    //            })));
-    //    }
+    #[test]
+    fn string_complete() {
+        let s = CqlString::try_from("hello").unwrap();
+        let ofs = 5usize;
+        let mut b: Vec<_> = (0u8..ofs as u8).collect();
+        encode::string(&s, &mut b);
+        b.extend(0..2);
+        let mut e: EasyBuf = b.into();
+        e.drain_to(ofs);
+        let (e, str) = string(e).unwrap();
+        assert_eq!(e.len(), 2);
+        assert_eq!(str, s);
+    }
+
+    #[test]
+    fn string_incomplete() {
+        let s: CqlString<EasyBuf> = CqlString::try_from("hello").unwrap();
+        let mut b: Vec<_> = Vec::new();
+        encode::string(&s, &mut b);
+        let e: EasyBuf = b.into();
+
+        assert_eq!(string(e.clone().drain_to(1)).unwrap_err(),
+                   Incomplete(Size(2)));
+        assert_eq!(string(e.clone().drain_to(3)).unwrap_err(),
+                   Incomplete(Size(5)));
+    }
+
+
     //
     //    #[test]
     //    fn string_list_incomplete_and_complete() {

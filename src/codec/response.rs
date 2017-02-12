@@ -80,10 +80,7 @@ mod test {
                                                   (CqlString::try_from("COMPRESSION").unwrap(),
                                                    csl2)])
                 .unwrap();
-
-        // TODO: do real comparison like
-        //        assert_eq!(res, SupportedMessage(smm));
-        assert_eq!(format!("{:?}", res), format!("{:?}", SupportedMessage(smm)));
+        assert_eq!(res.0, smm);
     }
 
 
