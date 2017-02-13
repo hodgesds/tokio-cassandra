@@ -2,6 +2,12 @@ use std::convert::AsRef;
 use std::hash::Hash;
 use std::collections::HashMap;
 
+mod simple;
+pub use self::simple::*;
+
+mod collections;
+pub use self::collections::*;
+
 error_chain! {
     errors {
         MaximumLengthExceeded(l: usize) {
@@ -51,11 +57,6 @@ impl<T, U> HasLength for HashMap<T, U>
     }
 }
 
-mod simple;
-pub use self::simple::*;
-
-mod collections;
-pub use self::collections::*;
 
 #[cfg(test)]
 mod test {

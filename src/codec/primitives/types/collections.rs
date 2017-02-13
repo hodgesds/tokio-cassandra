@@ -7,23 +7,16 @@ use super::*;
 
 /// TODO: zero copy - implement it as offset to beginning of vec to CqlStrings to prevent Vec
 /// allocation
-#[derive(Debug, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct CqlStringList<T>
     where T: AsRef<[u8]>
 {
     container: Vec<CqlString<T>>,
 }
 
-impl<T> PartialEq for CqlStringList<T>
-    where T: AsRef<[u8]>
-{
-    fn eq(&self, other: &CqlStringList<T>) -> bool {
-        self.container == other.container
-    }
-}
 
 impl<T> CqlFrom<CqlStringList<T>, Vec<CqlString<T>>> for CqlStringList<T>
-    where T: AsRef<[u8]>
+    where T: AsRef<[u8]> + PartialEq + Eq
 {
     unsafe fn unchecked_from(lst: Vec<CqlString<T>>) -> CqlStringList<T> {
         CqlStringList { container: lst }
@@ -72,23 +65,15 @@ impl<T> CqlStringList<T>
     }
 }
 
-#[derive(Debug, Eq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct CqlStringMap<T>
-    where T: AsRef<[u8]>
+    where T: AsRef<[u8]> + PartialEq + Eq
 {
     container: HashMap<CqlString<T>, CqlString<T>>,
 }
 
-impl<T> PartialEq for CqlStringMap<T>
-    where T: AsRef<[u8]>
-{
-    fn eq(&self, other: &CqlStringMap<T>) -> bool {
-        self.container == other.container
-    }
-}
-
 impl<T> CqlFrom<CqlStringMap<T>, HashMap<CqlString<T>, CqlString<T>>> for CqlStringMap<T>
-    where T: AsRef<[u8]>
+    where T: AsRef<[u8]> + PartialEq + Eq
 {
     unsafe fn unchecked_from(map: HashMap<CqlString<T>, CqlString<T>>) -> CqlStringMap<T> {
         CqlStringMap { container: map }
@@ -96,7 +81,7 @@ impl<T> CqlFrom<CqlStringMap<T>, HashMap<CqlString<T>, CqlString<T>>> for CqlStr
 }
 
 impl<T> CqlStringMap<T>
-    where T: AsRef<[u8]>
+    where T: AsRef<[u8]> + PartialEq + Eq
 {
     pub fn try_from_iter<I, E>(v: I) -> Result<CqlStringMap<T>>
         where I: IntoIterator<IntoIter = E, Item = (CqlString<T>, CqlString<T>)>,
@@ -119,24 +104,16 @@ impl<T> CqlStringMap<T>
     }
 }
 
-#[derive(Debug, Eq, Clone)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct CqlStringMultiMap<T>
-    where T: AsRef<[u8]>
+    where T: AsRef<[u8]> + PartialEq + Eq
 {
     container: HashMap<CqlString<T>, CqlStringList<T>>,
 }
 
-impl<T> PartialEq for CqlStringMultiMap<T>
-    where T: AsRef<[u8]>
-{
-    fn eq(&self, other: &CqlStringMultiMap<T>) -> bool {
-        self.container == other.container
-    }
-}
-
 impl<T> CqlFrom<CqlStringMultiMap<T>, HashMap<CqlString<T>, CqlStringList<T>>>
     for CqlStringMultiMap<T>
-    where T: AsRef<[u8]>
+    where T: AsRef<[u8]> + PartialEq + Eq
 {
     unsafe fn unchecked_from(map: HashMap<CqlString<T>, CqlStringList<T>>) -> CqlStringMultiMap<T> {
         CqlStringMultiMap { container: map }
@@ -144,7 +121,7 @@ impl<T> CqlFrom<CqlStringMultiMap<T>, HashMap<CqlString<T>, CqlStringList<T>>>
 }
 
 impl<T> CqlStringMultiMap<T>
-    where T: AsRef<[u8]>
+    where T: AsRef<[u8]> + PartialEq + Eq
 {
     pub fn try_from_iter<I, E>(v: I) -> Result<CqlStringMultiMap<T>>
         where I: IntoIterator<IntoIter = E, Item = (CqlString<T>, CqlStringList<T>)>,

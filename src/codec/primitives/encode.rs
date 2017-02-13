@@ -20,14 +20,14 @@ pub fn long(v: i64) -> [u8; 8] {
 }
 
 pub fn string<T>(s: &CqlString<T>, buf: &mut Vec<u8>)
-    where T: AsRef<[u8]>
+    where T: AsRef<[u8]> + PartialEq + Eq
 {
     buf.extend(&short(s.len())[..]);
     buf.extend(s.as_bytes());
 }
 
 pub fn string_list<T>(l: &CqlStringList<T>, buf: &mut Vec<u8>)
-    where T: AsRef<[u8]>
+    where T: AsRef<[u8]> + PartialEq + Eq
 {
     buf.extend(&short(l.len())[..]);
     for s in l.iter() {
@@ -36,7 +36,7 @@ pub fn string_list<T>(l: &CqlStringList<T>, buf: &mut Vec<u8>)
 }
 
 pub fn string_map<T>(m: &CqlStringMap<T>, buf: &mut Vec<u8>)
-    where T: AsRef<[u8]>
+    where T: AsRef<[u8]> + PartialEq + Eq
 {
     buf.extend(&short(m.len())[..]);
     for (k, v) in m.iter() {
@@ -46,7 +46,7 @@ pub fn string_map<T>(m: &CqlStringMap<T>, buf: &mut Vec<u8>)
 }
 
 pub fn string_multimap<T>(m: &CqlStringMultiMap<T>, buf: &mut Vec<u8>)
-    where T: AsRef<[u8]>
+    where T: AsRef<[u8]> + PartialEq + Eq
 {
     buf.extend(&short(m.len())[..]);
     for (k, lst) in m.iter() {

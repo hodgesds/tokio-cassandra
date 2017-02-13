@@ -1,4 +1,4 @@
-use super::{CqlStringList, CqlString, CqlStringMap, CqlStringMultiMap};
+use codec::primitives::types::{CqlStringList, CqlString, CqlStringMap, CqlStringMultiMap};
 use std::collections::HashMap;
 use tokio_core::io::EasyBuf;
 use byteorder::{ByteOrder, BigEndian};
@@ -108,7 +108,10 @@ pub fn string_multimap(i: EasyBuf) -> ParseResult<CqlStringMultiMap<EasyBuf>> {
 }
 
 mod test {
+    // TODO: figure out why it doesn't get it!
+    #[allow(unused_imports)]
     use super::*;
+    #[allow(unused_imports)]
     use super::super::encode;
 
     #[test]
@@ -165,12 +168,10 @@ mod test {
     #[test]
     fn string_complete() {
         let s = CqlString::try_from("hello").unwrap();
-        let ofs = 5usize;
-        let mut b: Vec<_> = (0u8..ofs as u8).collect();
+        let mut b = Vec::new();
         encode::string(&s, &mut b);
         b.extend(0..2);
-        let mut e: EasyBuf = b.into();
-        e.drain_to(ofs);
+        let e: EasyBuf = b.into();
         let (e, str) = string(e).unwrap();
         assert_eq!(e.len(), 2);
         assert_eq!(str, s);
@@ -190,7 +191,6 @@ mod test {
     }
 
     // TODO: move tests from types here, cause it seems very similar
-
     //
     //    #[test]
     //    fn string_list_incomplete_and_complete() {

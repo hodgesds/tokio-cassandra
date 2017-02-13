@@ -3,7 +3,7 @@ use super::CqlFrom;
 use tokio_core::io::EasyBuf;
 use std::hash::{Hasher, Hash};
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct CqlString<T>
     where T: AsRef<[u8]>
 {
@@ -17,16 +17,6 @@ impl<T> Debug for CqlString<T>
         self.as_ref().fmt(f)
     }
 }
-
-impl<T> PartialEq for CqlString<T>
-    where T: AsRef<[u8]>
-{
-    fn eq(&self, other: &CqlString<T>) -> bool {
-        self.as_ref() == other.as_ref()
-    }
-}
-
-impl<T> Eq for CqlString<T> where T: AsRef<[u8]> {}
 
 impl<T> AsRef<str> for CqlString<T>
     where T: AsRef<[u8]>
