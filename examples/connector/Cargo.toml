@@ -1,0 +1,19 @@
+[package]
+name = "tokio-line-multiplexed"
+version = "0.1.0"
+authors = ["Carl Lerche <me@carllerche.com>"]
+
+[dependencies]
+log = "0.3.6"
+futures = "0.1"
+byteorder = "1.0.0"
+tokio-core = "0.1"
+tokio-proto = "0.1"
+tokio-service = "0.1"
+service-fn = { git = "https://github.com/tokio-rs/service-fn" }
+
+[dependencies.tokio-cassandra]
+path = "../.."
+
+[replace]
+"tokio-core:0.1.4" = { path = "../../../tokio-core" }
