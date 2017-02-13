@@ -26,3 +26,6 @@ version = "0.9"
 [features]
 default_features = []
 with-serde = ["serde_derive", "serde"]
+
+[replace]
+"tokio-core:0.1.4" = { path = "../tokio-core" }

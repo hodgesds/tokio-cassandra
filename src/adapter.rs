@@ -1,25 +1,26 @@
 use codec::request::{self, cql_encode};
 use codec::response;
 use codec::header::Header;
+use codec::response::CqlDecode;
 
 use tokio_proto::streaming::multiplex::RequestId;
 use tokio_core::io::{EasyBuf, Codec};
 use std::io;
 
 enum Machine {
-    _NeedHeader,
-    _WithHeader(Header, usize),
+    NeedHeader,
+    WithHeader { header: Header, body_len: usize },
 }
 
 pub struct CqlCodecV3 {
-    _state: Machine,
+    state: Machine,
     pub flags: u8,
 }
 
 impl Default for CqlCodecV3 {
     fn default() -> Self {
         CqlCodecV3 {
-            _state: Machine::_NeedHeader,
+            state: Machine::NeedHeader,
             flags: 0,
         }
     }
@@ -27,7 +28,6 @@ impl Default for CqlCodecV3 {
 
 #[derive(Debug)]
 pub struct Response {
-    store: EasyBuf,
     pub header: Header,
     pub message: response::Message,
 }
@@ -36,54 +36,52 @@ pub struct Response {
 impl Codec for CqlCodecV3 {
     type In = (RequestId, Response);
     type Out = (RequestId, request::Message);
-    fn decode(&mut self, _buf: &mut EasyBuf) -> io::Result<Option<(RequestId, Response)>> {
-        unimplemented!();
-        //        use self::Machine::*;
-        //        match self.state {
-        //            NeedHeader => {
-        //                if buf.len() < Header::encoded_len() {
-        //                    return Ok(None);
-        //                }
-        //                let h = Header::try_from(buf.drain_to(Header::encoded_len())
-        //                        .as_slice()).map_err(|err|
-        //                                              io::Error::new(io::ErrorKind::Other, err))?;
-        //                self.state = WithHeader(h, h.length as usize);
-        //
-        //                return self.decode(buf);
-        //            }
-        //            WithHeader(_, l) => {
-        //                if l as usize > buf.len() {
-        //                    return Ok(None);
-        //                }
-        //                use codec::header::OpCode::*;
-        //                use std::mem;
-        //                let h = match mem::replace(&mut self.state, NeedHeader) {
-        //                    WithHeader(h, _) => h,
-        //                    _ => unreachable!(),
-        //                };
-        //                let code = h.op_code.clone();
-        //                let response = Response {
-        //                    store: buf.drain_to(h.length as usize),
-        //                    header: h,
-        //                    message: response::Message::Ready,
-        //                };
-        //                Ok(match code {
-        //                    Supported => {
-        //                        response::SupportedMessage::decode(
-        //                                                  response.store.as_slice()).map(|res| {
-        //                        /* TODO: verify amount of consumed bytes equals the
-        //                              ones actually parsed */
-        //                                Some((h.stream_id as RequestId,{
-        //                                        response.message =
-        //                                            response::Message::Supported(res.decoded);
-        //                                    response}))
-        //                            })
-        //                            .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?
-        //                    }
-        //                    _ => unimplemented!(),
-        //                })
-        //            }
-        //        }
+    fn decode(&mut self, buf: &mut EasyBuf) -> io::Result<Option<(RequestId, Response)>> {
+        use self::Machine::*;
+        match self.state {
+            NeedHeader => {
+                if buf.len() < Header::encoded_len() {
+                    return Ok(None);
+                }
+                let h = Header::try_from(buf.drain_to(Header::encoded_len())
+                        .as_slice()).map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
+                let len = h.length;
+                self.state = WithHeader {
+                    header: h,
+                    body_len: len as usize,
+                };
+
+                return self.decode(buf);
+            }
+            WithHeader { body_len, .. } => {
+                if body_len as usize > buf.len() {
+                    return Ok(None);
+                }
+                use codec::header::OpCode::*;
+                use std::mem;
+                let h = match mem::replace(&mut self.state, NeedHeader) {
+                    WithHeader { header, .. } => header,
+                    _ => unreachable!(),
+                };
+                let code = h.op_code.clone();
+                Ok(match code {
+                    Supported => {
+                        let msg =
+                             response::SupportedMessage::decode(buf.drain_to(body_len as usize))
+                            .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
+                        /* TODO: verify amount of consumed bytes equals the
+                                  ones actually parsed */
+
+                        Some((h.stream_id as RequestId,
+                              Response {
+                                  header: h,
+                                  message: response::Message::Supported(msg),
+                              }))
+                    }
+                    _ => unimplemented!(),
+                })
+            }
+        }
     }
 
     fn encode(&mut self, msg: (RequestId, request::Message), buf: &mut Vec<u8>) -> io::Result<()> {

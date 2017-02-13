@@ -1,6 +1,6 @@
-use codec::header::Header;
 use codec::primitives::CqlStringMultiMap;
 use codec::primitives::decode;
+use tokio_core::io::EasyBuf;
 
 error_chain! {
     foreign_links {
@@ -22,18 +22,12 @@ error_chain! {
 }
 
 #[derive(Debug)]
-pub struct SupportedMessage(pub CqlStringMultiMap<::tokio_core::io::EasyBuf>);
+pub struct SupportedMessage(pub CqlStringMultiMap<EasyBuf>);
 
 #[derive(Debug)]
 pub enum Message {
     Supported(SupportedMessage),
     Ready,
-}
-
-#[derive(Debug)]
-struct _Frame {
-    header: Header,
-    body: Message,
 }
 
 impl CqlDecode<SupportedMessage> for SupportedMessage {
