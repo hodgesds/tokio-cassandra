@@ -1,7 +1,6 @@
 use codec::request::{self, cql_encode};
-use codec::response;
-use codec::header::Header;
-use codec::response::CqlDecode;
+use codec::header::{OpCode, Header};
+use codec::response::{self, Result, CqlDecode};
 
 use tokio_proto::streaming::multiplex::RequestId;
 use tokio_core::io::{EasyBuf, Codec};
@@ -32,6 +31,14 @@ pub struct Response {
     pub message: response::Message,
 }
 
+fn match_message(code: OpCode, buf: EasyBuf) -> Result<response::Message> {
+    use codec::header::OpCode::*;
+    Ok(match code {
+        Supported => response::Message::Supported(response::SupportedMessage::decode(buf)?),
+        Ready => response::Message::Ready,
+        _ => unimplemented!(),
+    })
+}
 
 impl Codec for CqlCodecV3 {
     type In = (RequestId, Response);
@@ -57,29 +64,21 @@ impl Codec for CqlCodecV3 {
                 if body_len as usize > buf.len() {
                     return Ok(None);
                 }
-                use codec::header::OpCode::*;
                 use std::mem;
                 let h = match mem::replace(&mut self.state, NeedHeader) {
                     WithHeader { header, .. } => header,
                     _ => unreachable!(),
                 };
                 let code = h.op_code.clone();
-                Ok(match code {
-                    Supported => {
-                        let msg =
-                             response::SupportedMessage::decode(buf.drain_to(body_len as usize))
-                            .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
-                        /* TODO: verify amount of consumed bytes equals the
-                                  ones actually parsed */
+                Ok(Some((h.stream_id as RequestId,
+                         Response {
+                             header: h,
+                             /* TODO: verify amount of consumed bytes equals the
+                                                   ones actually parsed */
+                             message: match_message(code, buf.drain_to(body_len))
+                                 .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?,
+                         })))
 
-                        Some((h.stream_id as RequestId,
-                              Response {
-                                  header: h,
-                                  message: response::Message::Supported(msg),
-                              }))
-                    }
-                    _ => unimplemented!(),
-                })
             }
         }
     }
