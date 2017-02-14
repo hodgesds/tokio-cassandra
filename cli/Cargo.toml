@@ -1,0 +1,27 @@
+[package]
+authors = ["Nikolai Hellwig <info@nikolaihellwig.de>", "Sebastian Thiel <byronimo@gmail.com>"]
+description = "A client to connect and query cassandra databases via tokio-cassandra"
+documentation = "https://docs.rs/tokio-cassandra"
+keywords = ["cassandra", "driver", "tokio", "async-io", "cli"]
+license = "MIT/Apache-2.0"
+name = "tokio-cassandra-cli"
+repository = "https://github.com/nhellwig/tokio-cassandra"
+version = "0.0.0"
+
+[[bin]]
+name = "tcc"
+
+[lib]
+name = "tcc"
+
+[dependencies]
+byteorder = "1.0.0"
+log = "0.3.6"
+futures = "0.1"
+tokio-core = "0.1"
+tokio-proto = "0.1"
+tokio-service = "0.1"
+tokio-cassandra = { path = "..", version = "0.0" }
+
+[replace]
+"tokio-core:0.1.4" = { path = "../../tokio-core" }
