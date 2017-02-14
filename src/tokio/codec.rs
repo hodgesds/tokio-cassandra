@@ -3,7 +3,8 @@ use codec::header::{OpCode, Header};
 use codec::response::{self, Result, CqlDecode};
 
 use tokio_proto::streaming::multiplex::RequestId;
-use tokio_core::io::{EasyBuf, Codec};
+use tokio_proto::multiplex;
+use tokio_core::io::{EasyBuf, Codec, Io, Framed};
 use std::io;
 
 enum Machine {
@@ -74,11 +75,10 @@ impl Codec for CqlCodecV3 {
                          Response {
                              header: h,
                              /* TODO: verify amount of consumed bytes equals the
-                                                   ones actually parsed */
+                                               ones actually parsed */
                              message: match_message(code, buf.drain_to(body_len))
                                  .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?,
                          })))
-
             }
         }
     }
@@ -88,5 +88,18 @@ impl Codec for CqlCodecV3 {
 
         cql_encode(self.flags, id as u16 /* FIXME safe cast */, req, buf)
             .map_err(|err| io::Error::new(io::ErrorKind::Other, err))
+    }
+}
+
+pub struct CqlProtoV3;
+
+impl<T: Io + 'static> multiplex::ClientProto<T> for CqlProtoV3 {
+    type Request = request::Message;
+    type Response = Response;
+    type Transport = Framed<T, CqlCodecV3>;
+    type BindTransport = ::std::result::Result<Self::Transport, io::Error>;
+
+    fn bind_transport(&self, io: T) -> Self::BindTransport {
+        Ok(io.framed(CqlCodecV3::default()))
     }
 }

@@ -11,8 +11,10 @@ extern crate serde;
 #[macro_use]
 extern crate serde_derive;
 
+extern crate futures;
 extern crate tokio_core;
+extern crate tokio_service;
 extern crate tokio_proto;
 
 pub mod codec;
-pub mod adapter;
+pub mod tokio;

@@ -9,17 +9,24 @@ repository = "https://github.com/nhellwig/tokio-cassandra"
 version = "0.0.0"
 
 [[bin]]
-name = "tcc"
-
-[lib]
+doc = false
 name = "tcc"
 
 [dependencies]
 byteorder = "1.0.0"
-log = "0.3.6"
+clap = "2.20.3"
+error-chain = "0.9.0"
 futures = "0.1"
-tokio-core = { git = "https://github.com/tokio-rs/tokio-core" }
+log = "0.3.6"
 tokio-proto = "0.1"
 tokio-service = "0.1"
-tokio-cassandra = { path = "..", version = "0.0" }
 
+[dependencies.tokio-cassandra]
+path = ".."
+version = "0.0"
+
+[dependencies.tokio-core]
+git = "https://github.com/tokio-rs/tokio-core"
+
+[lib]
+name = "tcc"
