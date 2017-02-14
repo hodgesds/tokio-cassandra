@@ -18,10 +18,8 @@ name = "tcc"
 byteorder = "1.0.0"
 log = "0.3.6"
 futures = "0.1"
-tokio-core = "0.1"
+tokio-core = { git = "https://github.com/tokio-rs/tokio-core" }
 tokio-proto = "0.1"
 tokio-service = "0.1"
 tokio-cassandra = { path = "..", version = "0.0" }
 
-[replace]
-"tokio-core:0.1.4" = { path = "../../tokio-core" }
