@@ -2,6 +2,7 @@ use codec::request::{self, cql_encode};
 use codec::header::{OpCode, Header};
 use codec::response::{self, Result, CqlDecode};
 
+use futures::{Future, Sink, IntoFuture, Stream};
 use tokio_proto::multiplex::{self, RequestId};
 use tokio_core::io::{EasyBuf, Codec, Io, Framed};
 use std::io;
@@ -96,9 +97,14 @@ impl<T: Io + 'static> multiplex::ClientProto<T> for CqlProtoV3 {
     type Request = request::Message;
     type Response = Response;
     type Transport = Framed<T, CqlCodecV3>;
-    type BindTransport = ::std::result::Result<Self::Transport, io::Error>;
+    type BindTransport = Box<Future<Item = Self::Transport, Error = io::Error>>;
+
 
     fn bind_transport(&self, io: T) -> Self::BindTransport {
-        Ok(io.framed(CqlCodecV3::default()))
+        let transport = io.framed(CqlCodecV3::default());
+        let handshake = transport.send((0, request::Message::Options))
+            .and_then(|transport| transport.into_future().map_err(|(e, _)| e))
+            .and_then(|(res, transport)| Ok(transport));
+        Box::new(handshake)
     }
 }
