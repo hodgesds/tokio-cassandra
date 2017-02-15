@@ -20,13 +20,14 @@ futures = "0.1"
 log = "0.3.6"
 tokio-proto = "0.1"
 tokio-service = "0.1"
+tokio-core = "0.1"
 
 [dependencies.tokio-cassandra]
 path = ".."
 version = "0.0"
 
-[dependencies.tokio-core]
-git = "https://github.com/tokio-rs/tokio-core"
+[replace]
+"tokio-core:0.1.4" = { git = 'https://github.com/tokio-rs/tokio-core' }
 
 [lib]
 name = "tcc"
