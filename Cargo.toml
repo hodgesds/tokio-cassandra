@@ -13,8 +13,9 @@ byteorder = "1.0.0"
 error-chain = "0.8.1"
 futures = "0.1.10"
 quick-error = "1.1.0"
-tokio-proto = "0.1.0"
-tokio-service = "0.1.0"
+tokio-core = "0.1"
+tokio-proto = "0.1"
+tokio-service = "0.1"
 
 [dependencies.serde]
 optional = true
@@ -24,8 +25,8 @@ version = "0.9"
 optional = true
 version = "0.9"
 
-[dependencies.tokio-core]
-git = "https://github.com/tokio-rs/tokio-core"
+[replace]
+"tokio-core:0.1.4" = { git = 'https://github.com/tokio-rs/tokio-core' }
 
 [features]
 default_features = []

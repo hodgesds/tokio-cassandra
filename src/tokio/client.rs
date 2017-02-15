@@ -1,24 +1,22 @@
+use super::CqlProtoV3;
+use codec::{request, response};
 use tokio_service::Service;
 use futures::Future;
-use codec::{response, request};
 use tokio_core::reactor::Handle;
 use tokio_proto::TcpClient;
-use super::codec::CqlProtoV3;
 use std::io;
 
-struct Client;
-
-error_chain!{}
+pub struct Client;
 
 impl Client {
     pub fn connect(host: &str,
-                   port: u16,
+                   _port: u16,
                    handle: &Handle)
                    -> Box<Future<Item = Client, Error = io::Error>> {
         let addr = host.parse().expect("TODO: dns resolve this one ... in a future :P");
         let ret = TcpClient::new(CqlProtoV3)
-            .connect(addr, handle)
-            .map(|client_service| Client);
+            .connect(&addr, handle)
+            .map(|_client_service| Client);
         Box::new(ret)
     }
 }
@@ -29,7 +27,7 @@ impl Service for Client {
     type Error = io::Error;
     type Future = Box<Future<Item = Self::Response, Error = Self::Error>>;
 
-    fn call(&self, req: Self::Request) -> Self::Future {
+    fn call(&self, _req: Self::Request) -> Self::Future {
         unimplemented!()
     }
 }

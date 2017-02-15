@@ -2,8 +2,7 @@ use codec::request::{self, cql_encode};
 use codec::header::{OpCode, Header};
 use codec::response::{self, Result, CqlDecode};
 
-use tokio_proto::streaming::multiplex::RequestId;
-use tokio_proto::multiplex;
+use tokio_proto::multiplex::{self, RequestId};
 use tokio_core::io::{EasyBuf, Codec, Io, Framed};
 use std::io;
 
