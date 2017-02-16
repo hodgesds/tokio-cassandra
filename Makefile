@@ -17,7 +17,7 @@ integration-tests:
 	bin/integration-test.sh $(CLI_EXECUTABLE)
 
 debug-docker-db: $(CLI_EXECUTABLE)
-	source lib/utilities.sh && start_dependencies 9042 $(CLI_EXECUTABLE)
+	source lib/utilities.sh && start_dependencies 9042 "$(CLI_EXECUTABLE) test-connection"
 
 debug-cli-tests:
 	cd cli && cargo run -- test-connection 127.0.0.1 9042

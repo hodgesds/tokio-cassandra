@@ -1,6 +1,7 @@
 use codec::request::{self, cql_encode};
 use codec::header::{OpCode, Header};
 use codec::response::{self, Result, CqlDecode};
+use codec::primitives::{CqlFrom, CqlString};
 
 use futures::{Future, Sink, IntoFuture, Stream};
 use tokio_proto::multiplex::{self, RequestId};
@@ -45,7 +46,7 @@ impl Codec for CqlCodecV3 {
     type In = (RequestId, Response);
     type Out = (RequestId, request::Message);
     fn decode(&mut self, buf: &mut EasyBuf) -> io::Result<Option<(RequestId, Response)>> {
-        println!("in decode(): buf = {:?}", buf);
+        //        println!("in decode(): buf = {:?}", buf);
         use self::Machine::*;
         match self.state {
             NeedHeader => {
@@ -100,10 +101,8 @@ impl<T: Io + 'static> multiplex::ClientProto<T> for CqlProtoV3 {
     type Transport = Framed<T, CqlCodecV3>;
     type BindTransport = Box<Future<Item = Self::Transport, Error = io::Error>>;
 
-
     fn bind_transport(&self, io: T) -> Self::BindTransport {
         let transport = io.framed(CqlCodecV3::default());
-        println!("bind_transport()!");
         let handshake = transport.send((0, request::Message::Options))
             .and_then(|transport| transport.into_future().map_err(|(e, _)| e))
             .and_then(|(res, transport)| match res {
@@ -111,9 +110,36 @@ impl<T: Io + 'static> multiplex::ClientProto<T> for CqlProtoV3 {
                     Err(io::Error::new(io::ErrorKind::Other,
                                        "No reply received upon 'OPTIONS' message"))
                 }
-                Some(msg) => {
-                    println!("handshake: res = {:?}", msg);
-                    Ok(transport)
+                Some((id, res)) => {
+                    match res.message {
+                        response::Message::Supported(msg) => {
+                            println!("handshake: res = {:?}", msg);
+                            // TODO: get version from supported msg
+                            let startup = request::StartupMessage {
+                                cql_version: CqlString::try_from("3.2.1").unwrap(),
+                                compression: None,
+                            };
+                            transport.send((0, request::Message::Startup(startup)))
+                                .and_then(|transport| transport.into_future().map_err(|(e, _)| e))
+                                .and_then(|(res, transport)| match res {
+                                    None => {
+                                        Err(io::Error::new(io::ErrorKind::Other,
+                                                           "No reply received upon 'OPTIONS' \
+                                                            message"))
+                                    }
+                                    Some((id, res)) => {
+                                        println!("handshake: res = {:?}", msg);
+                                        Ok(transport)
+                                    }
+                                })
+                        }
+                        msg => {
+                            Err(io::Error::new(io::ErrorKind::Other,
+                                               format!("Expected to receive 'SUPPORTED' message \
+                                                        but got {:?}",
+                                                       msg)))
+                        }
+                    }
                 }
             });
         Box::new(handshake)
