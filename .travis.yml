@@ -1,15 +1,21 @@
+sudo: required
+
+services:
+  - docker
+
 os:
 - linux
 - osx
+
 language: rust
-before_install:
-- sudo sh -c "echo 'JVM_OPTS=\"\${JVM_OPTS} -Djava.net.preferIPv4Stack=false\"' >> /usr/local/cassandra/conf/cassandra-env.sh"
-- sudo service cassandra start
+
 rust:
 - stable
 - beta
 - nightly
+
 script:
 - cargo doc
+- make debug-docker-db
 - make unit-tests
 - make integration-tests
