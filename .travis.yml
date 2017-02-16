@@ -12,3 +12,5 @@ script:
 - cargo doc
 - make unit-tests
 - make integration-tests
+before_install:
+    - sudo sh -c "echo 'JVM_OPTS=\"\${JVM_OPTS} -Djava.net.preferIPv4Stack=false\"' >> /usr/local/cassandra/conf/cassandra-env.sh"
