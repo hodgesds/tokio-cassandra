@@ -105,7 +105,7 @@ impl<T: Io + 'static> multiplex::ClientProto<T> for CqlProtoV3 {
         let transport = io.framed(CqlCodecV3::default());
         let handshake = transport.send((0, request::Message::Options))
             .and_then(|transport| transport.into_future().map_err(|(e, _)| e))
-            .and_then(|(res, transport)| match res {
+            .then(|(res, transport)| match res {
                 None => {
                     Err(io::Error::new(io::ErrorKind::Other,
                                        "No reply received upon 'OPTIONS' message"))
@@ -119,19 +119,7 @@ impl<T: Io + 'static> multiplex::ClientProto<T> for CqlProtoV3 {
                                 cql_version: CqlString::try_from("3.2.1").unwrap(),
                                 compression: None,
                             };
-                            transport.send((0, request::Message::Startup(startup)))
-                                .and_then(|transport| transport.into_future().map_err(|(e, _)| e))
-                                .and_then(|(res, transport)| match res {
-                                    None => {
-                                        Err(io::Error::new(io::ErrorKind::Other,
-                                                           "No reply received upon 'OPTIONS' \
-                                                            message"))
-                                    }
-                                    Some((id, res)) => {
-                                        println!("handshake: res = {:?}", msg);
-                                        Ok(transport)
-                                    }
-                                })
+                            Ok((transport, startup))
                         }
                         msg => {
                             Err(io::Error::new(io::ErrorKind::Other,
@@ -141,6 +129,20 @@ impl<T: Io + 'static> multiplex::ClientProto<T> for CqlProtoV3 {
                         }
                     }
                 }
+            })
+            .and_then(|(transport, msg)| {
+                transport.send((0, request::Message::Startup(msg)))
+                    .and_then(|transport| transport.into_future().map_err(|(e, _)| e))
+                    .and_then(|(res, transport)| match res {
+                        None => {
+                            Err(io::Error::new(io::ErrorKind::Other,
+                                               "No reply received upon 'STARTUP' message"))
+                        }
+                        Some((id, res)) => {
+                            println!("handshake: res = {:?}", res);
+                            Ok(transport)
+                        }
+                    })
             });
         Box::new(handshake)
     }
