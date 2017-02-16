@@ -11,4 +11,4 @@ unit-tests:
 	
 integration-tests:
 	cd cli && cargo build
-	bin/integration-test.sh cli/target/debug/tcc
+	bin/integration-test.sh target/debug/tcc
