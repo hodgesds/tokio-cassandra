@@ -45,6 +45,7 @@ impl Codec for CqlCodecV3 {
     type In = (RequestId, Response);
     type Out = (RequestId, request::Message);
     fn decode(&mut self, buf: &mut EasyBuf) -> io::Result<Option<(RequestId, Response)>> {
+        println!("in decode(): buf = {:?}", buf);
         use self::Machine::*;
         match self.state {
             NeedHeader => {
@@ -102,9 +103,13 @@ impl<T: Io + 'static> multiplex::ClientProto<T> for CqlProtoV3 {
 
     fn bind_transport(&self, io: T) -> Self::BindTransport {
         let transport = io.framed(CqlCodecV3::default());
+        println!("bind_transport()!");
         let handshake = transport.send((0, request::Message::Options))
             .and_then(|transport| transport.into_future().map_err(|(e, _)| e))
-            .and_then(|(res, transport)| Ok(transport));
+            .and_then(|(res, transport)| {
+                println!("handshake: res = {:?}", res);
+                Ok(transport)
+            });
         Box::new(handshake)
     }
 }
