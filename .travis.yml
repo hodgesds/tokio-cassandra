@@ -2,11 +2,13 @@ os:
 - linux
 - osx
 language: rust
+services:
+- cassandra
 rust:
 - stable
 - beta
 - nightly
 script:
-- make unit-tests
 - cargo doc
-
+- make unit-tests
+- make integration-tests
