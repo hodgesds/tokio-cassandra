@@ -24,6 +24,7 @@ tokio-core = "0.1"
 
 [dependencies.tokio-cassandra]
 path = ".."
+features = ["with-serde"]
 version = "0.0"
 
 [replace]

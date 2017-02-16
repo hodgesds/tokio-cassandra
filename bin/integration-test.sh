@@ -17,7 +17,7 @@ function start_dependencies() {
     if [ -z "$TRAVIS" ]; then
         docker run --rm --name $CONTAINER_NAME -d -p $CASSANDRA_HOST:$CASSANDRA_PORT:9042 --expose 9042 cassandra:2.1 1>&2
     fi
-    while ! nc -d $CASSANDRA_HOST $CASSANDRA_PORT -w 1 -G 1; do
+    while ! nc -d $CASSANDRA_HOST $CASSANDRA_PORT -w 1; do
         echo "Waiting for cassandra on $CASSANDRA_HOST:$CASSANDRA_PORT" 1>&2
         sleep 1
     done
