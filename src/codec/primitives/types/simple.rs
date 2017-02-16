@@ -67,3 +67,22 @@ impl<T> CqlString<T>
         self.buf.as_ref()
     }
 }
+
+impl From<CqlString<EasyBuf>> for CqlString<Vec<u8>> {
+    fn from(string: CqlString<EasyBuf>) -> CqlString<Vec<u8>> {
+        CqlString { buf: Vec::from(string.as_bytes()) }
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use tokio_core::io::EasyBuf;
+
+    #[test]
+    fn from_easybuf_into_vec() {
+        let a: CqlString<EasyBuf> = unsafe { CqlString::unchecked_from("AbC") };
+        let b: CqlString<Vec<u8>> = a.into();
+        assert_eq!("AbC", b.as_ref());
+    }
+}

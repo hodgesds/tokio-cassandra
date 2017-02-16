@@ -1,9 +1,8 @@
 use codec::request::{self, cql_encode};
 use codec::header::{OpCode, Header};
 use codec::response::{self, Result, CqlDecode};
-use codec::primitives::{CqlFrom, CqlString};
 
-use futures::{Future, Sink, IntoFuture, Stream};
+use futures::{Future, Sink, Stream};
 use tokio_proto::multiplex::{self, RequestId};
 use tokio_core::io::{EasyBuf, Codec, Io, Framed};
 use std::io;
@@ -110,13 +109,22 @@ impl<T: Io + 'static> multiplex::ClientProto<T> for CqlProtoV3 {
                     Err(io::Error::new(io::ErrorKind::Other,
                                        "No reply received upon 'OPTIONS' message"))
                 }
-                Some((id, res)) => {
+                Some((_id, res)) => {
                     match res.message {
                         response::Message::Supported(msg) => {
                             println!("handshake: res = {:?}", msg);
-                            // TODO: get version from supported msg
                             let startup = request::StartupMessage {
-                                cql_version: CqlString::try_from("3.2.1").unwrap(),
+                                cql_version: msg.cql_version()
+                                    .ok_or(io::Error::new(io::ErrorKind::Other,
+                                                          "Expected CQL_VERSION to be in \
+                                                           StartupMessage"))?
+                                    .iter()
+                                    .next()
+                                    .ok_or(io::Error::new(io::ErrorKind::Other,
+                                                          "Expected CQL_VERSION to contain at \
+                                                           least one version"))?
+                                    .clone()
+                                    .into(),
                                 compression: None,
                             };
                             Ok((transport, startup))
@@ -138,7 +146,7 @@ impl<T: Io + 'static> multiplex::ClientProto<T> for CqlProtoV3 {
                             Err(io::Error::new(io::ErrorKind::Other,
                                                "No reply received upon 'STARTUP' message"))
                         }
-                        Some((id, res)) => {
+                        Some((_id, res)) => {
                             println!("handshake: res = {:?}", res);
                             Ok(transport)
                         }

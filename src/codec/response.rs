@@ -1,4 +1,4 @@
-use codec::primitives::CqlStringMultiMap;
+use codec::primitives::{CqlFrom, CqlString, CqlStringList, CqlStringMultiMap};
 use codec::primitives::decode;
 use tokio_core::io::EasyBuf;
 
@@ -23,6 +23,16 @@ error_chain! {
 
 #[derive(Debug)]
 pub struct SupportedMessage(pub CqlStringMultiMap<EasyBuf>);
+
+impl SupportedMessage {
+    pub fn cql_version(&self) -> Option<&CqlStringList<EasyBuf>> {
+        self.0.get(unsafe { &CqlString::unchecked_from("CQL_VERSION") })
+    }
+
+    pub fn compression(&self) -> Option<&CqlStringList<EasyBuf>> {
+        self.0.get(unsafe { &CqlString::unchecked_from("COMPRESSION") })
+    }
+}
 
 #[derive(Debug)]
 pub enum Message {
@@ -51,7 +61,7 @@ pub trait CqlDecode<T> {
 #[cfg(test)]
 mod test {
     use codec::header::Header;
-    use codec::primitives::{CqlFrom, CqlStringMultiMap, CqlString, CqlStringList};
+    use codec::primitives::CqlStringList;
     use super::*;
 
     fn skip_header(b: &[u8]) -> &[u8] {
@@ -68,14 +78,8 @@ mod test {
         let slb = ["snappy", "lz4"];
         let csl1 = CqlStringList::try_from_iter_easy(sla.iter().cloned()).unwrap();
         let csl2 = CqlStringList::try_from_iter_easy(slb.iter().cloned()).unwrap();
-        let smm =
-            CqlStringMultiMap::try_from_iter(vec![(CqlString::try_from("CQL_VERSION").unwrap(),
-                                                   csl1),
-                                                  (CqlString::try_from("COMPRESSION").unwrap(),
-                                                   csl2)])
-                .unwrap();
-        assert_eq!(res.0, smm);
+
+        assert_eq!(res.cql_version().unwrap(), &csl1);
+        assert_eq!(res.compression().unwrap(), &csl2);
     }
-
-
 }

@@ -142,4 +142,8 @@ impl<T> CqlStringMultiMap<T>
     pub fn iter(&self) -> ::std::collections::hash_map::Iter<CqlString<T>, CqlStringList<T>> {
         self.container.iter()
     }
+
+    pub fn get(&self, k: &CqlString<T>) -> Option<&CqlStringList<T>> {
+        self.container.get(k)
+    }
 }
