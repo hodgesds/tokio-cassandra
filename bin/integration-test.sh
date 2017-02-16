@@ -14,7 +14,7 @@ fi
 
 
 trap stop_dependencies 0 1 2 5 15
-start_dependencies $CASSANDRA_PORT
+start_dependencies $CASSANDRA_PORT "$cli test-connection"
 
 $cli test-connection $CASSANDRA_HOST $CASSANDRA_PORT
 

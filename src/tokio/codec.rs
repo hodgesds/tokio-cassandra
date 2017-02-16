@@ -106,9 +106,15 @@ impl<T: Io + 'static> multiplex::ClientProto<T> for CqlProtoV3 {
         println!("bind_transport()!");
         let handshake = transport.send((0, request::Message::Options))
             .and_then(|transport| transport.into_future().map_err(|(e, _)| e))
-            .and_then(|(res, transport)| {
-                println!("handshake: res = {:?}", res);
-                Ok(transport)
+            .and_then(|(res, transport)| match res {
+                None => {
+                    Err(io::Error::new(io::ErrorKind::Other,
+                                       "No reply received upon 'OPTIONS' message"))
+                }
+                Some(msg) => {
+                    println!("handshake: res = {:?}", msg);
+                    Ok(transport)
+                }
             });
         Box::new(handshake)
     }
