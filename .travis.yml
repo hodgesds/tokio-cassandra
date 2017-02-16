@@ -16,6 +16,6 @@ rust:
 
 script:
 - cargo doc
-- make debug-docker-db
 - make unit-tests
+- make debug-docker-db
 - make integration-tests
