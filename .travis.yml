@@ -7,6 +7,6 @@ rust:
 - beta
 - nightly
 script:
-- cargo test --features=with-serde
+- make unit-tests
 - cargo doc
 
