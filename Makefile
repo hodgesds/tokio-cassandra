@@ -15,7 +15,7 @@ unit-tests:
 $(CLI_EXECUTABLE):
 	cd cli && cargo build
 
-integration-tests: 
+integration-tests: $(CLI_EXECUTABLE)
 	bin/integration-test.sh $(CLI_EXECUTABLE)
 
 debug-docker-db: $(CLI_EXECUTABLE)
