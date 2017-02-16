@@ -17,4 +17,4 @@ rust:
 script:
 - cargo doc
 - make unit-tests
-- make integration-tests
+- if [[ "$TRAVIS_OS_NAME" != "osx" ]]; then make integration-tests; fi
