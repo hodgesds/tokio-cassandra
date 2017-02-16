@@ -39,7 +39,10 @@ mod scmds {
         let client = Client::connect(&addr, &handle);
         core.run(client)
             .chain_err(|| format!("Failed to connect to {}:{}", host, port))
-            .map(|_| ())
+            .map(|_| {
+                println!("Connection to {}:{} successful", host, port);
+                ()
+            })
             .map_err(|e| e.into())
     }
 

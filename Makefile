@@ -12,5 +12,3 @@ unit-tests:
 integration-tests:
 	cd cli && cargo build
 	bin/integration-test.sh cli/target/debug/tcc
-
-# docker run --rm --name cassandra-test -d -p 9042:9042 --expose 9042 cassandra:2.1
