@@ -113,8 +113,7 @@ impl<T: Io + 'static> multiplex::ClientProto<T> for CqlProtoV3 {
                                 cql_version: msg.latest_cql_version()
                                     .ok_or(io_err("Expected CQL_VERSION to contain at least one \
                                                    version"))?
-                                    .clone()
-                                    .into(),
+                                    .clone(),
                                 compression: None,
                             };
                             Ok((transport, startup))

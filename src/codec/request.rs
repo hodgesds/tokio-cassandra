@@ -29,16 +29,17 @@ pub enum Message {
     Startup(StartupMessage),
 }
 
+use tokio_core::io::EasyBuf;
 pub struct StartupMessage {
-    pub cql_version: CqlString<Vec<u8>>,
-    pub compression: Option<CqlString<Vec<u8>>>,
+    pub cql_version: CqlString<EasyBuf>,
+    pub compression: Option<CqlString<EasyBuf>>,
 }
 
 impl CqlEncode for StartupMessage {
     fn encode(&self, buf: &mut Vec<u8>) -> Result<usize> {
         use codec::primitives::CqlFrom;
 
-        let mut sm: HashMap<CqlString<Vec<u8>>, CqlString<Vec<u8>>> = HashMap::new();
+        let mut sm: HashMap<CqlString<EasyBuf>, CqlString<EasyBuf>> = HashMap::new();
         sm.insert(unsafe { CqlString::unchecked_from("CQL_VERSION") },
                   self.cql_version.clone());
 
