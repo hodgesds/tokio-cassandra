@@ -45,7 +45,6 @@ impl Codec for CqlCodecV3 {
     type In = (RequestId, Response);
     type Out = (RequestId, request::Message);
     fn decode(&mut self, buf: &mut EasyBuf) -> io::Result<Option<(RequestId, Response)>> {
-        //        println!("in decode(): buf = {:?}", buf);
         use self::Machine::*;
         match self.state {
             NeedHeader => {
@@ -125,7 +124,6 @@ fn interpret_response_to_option<T>
     res.ok_or_else(|| io_err("No reply received upon 'OPTIONS' message"))
         .and_then(|(_id, res)| match res.message {
             response::Message::Supported(msg) => {
-                println!("handshake: res = {:?}", msg);
                 let startup = request::StartupMessage {
                     cql_version: msg.latest_cql_version()
                         .ok_or(io_err("Expected CQL_VERSION to contain at least one version"))?

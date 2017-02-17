@@ -1,4 +1,5 @@
-use codec::primitives::types::{CqlStringList, CqlString, CqlStringMap, CqlStringMultiMap};
+use codec::primitives::types::{CqlStringList, CqlString, CqlLongString, CqlStringMap,
+                               CqlStringMultiMap};
 use std::collections::HashMap;
 use tokio_core::io::EasyBuf;
 use byteorder::{ByteOrder, BigEndian};
@@ -62,6 +63,15 @@ pub fn string(buf: EasyBuf) -> ParseResult<CqlString<EasyBuf>> {
         return Err(Incomplete(Size(len as usize)));
     }
     let str = CqlString::from(buf.drain_to(len as usize));
+    Ok((buf, str))
+}
+
+pub fn long_string(buf: EasyBuf) -> ParseResult<CqlLongString<EasyBuf>> {
+    let (mut buf, len) = int(buf)?;
+    if buf.len() < len as usize {
+        return Err(Incomplete(Size(len as usize)));
+    }
+    let str = CqlLongString::from(buf.drain_to(len as usize));
     Ok((buf, str))
 }
 

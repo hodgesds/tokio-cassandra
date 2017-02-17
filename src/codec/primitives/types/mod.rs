@@ -2,8 +2,11 @@ use std::convert::AsRef;
 use std::hash::Hash;
 use std::collections::HashMap;
 
-mod simple;
-pub use self::simple::*;
+mod cql_string;
+pub use self::cql_string::*;
+
+mod cql_long_string;
+pub use self::cql_long_string::*;
 
 mod collections;
 pub use self::collections::*;
@@ -31,6 +34,7 @@ pub trait CqlFrom<C, V>
         }
     }
     unsafe fn unchecked_from(s: V) -> C;
+    fn max_len() -> usize;
 }
 
 pub trait HasLength {
@@ -93,18 +97,7 @@ mod test {
         assert_eq!(res.unwrap().1, expected);
     }
 
-    #[test]
-    fn string() {
-        let s = CqlString::try_from("Hello üß").unwrap();
-        let mut buf = Vec::new();
-        encode::string(&s, &mut buf);
 
-        let buf = Vec::from(&buf[..]).into();
-
-        println!("buf = {:?}", buf);
-        let res = decode::string(buf);
-        assert_eq!(res.unwrap().1, s);
-    }
 
     #[test]
     fn string_list() {

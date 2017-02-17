@@ -47,12 +47,20 @@ impl<'a> CqlFrom<CqlString<EasyBuf>, &'a str> for CqlString<EasyBuf> {
         let vec = Vec::from(s);
         CqlString { buf: vec.into() }
     }
+
+    fn max_len() -> usize {
+        u16::max_value() as usize
+    }
 }
 
 impl<'a> CqlFrom<CqlString<Vec<u8>>, &'a str> for CqlString<Vec<u8>> {
     unsafe fn unchecked_from(s: &str) -> CqlString<Vec<u8>> {
         let vec = Vec::from(s);
         CqlString { buf: vec }
+    }
+
+    fn max_len() -> usize {
+        u16::max_value() as usize
     }
 }
 
@@ -78,11 +86,25 @@ impl From<CqlString<EasyBuf>> for CqlString<Vec<u8>> {
 mod test {
     use super::*;
     use tokio_core::io::EasyBuf;
+    use super::super::super::{encode, decode};
 
     #[test]
     fn from_easybuf_into_vec() {
         let a: CqlString<EasyBuf> = unsafe { CqlString::unchecked_from("AbC") };
         let b: CqlString<Vec<u8>> = a.into();
         assert_eq!("AbC", b.as_ref());
+    }
+
+    #[test]
+    fn string() {
+        let s = CqlString::try_from("Hello üß").unwrap();
+        let mut buf = Vec::new();
+        encode::string(&s, &mut buf);
+
+        let buf = Vec::from(&buf[..]).into();
+
+        println!("buf = {:?}", buf);
+        let res = decode::string(buf);
+        assert_eq!(res.unwrap().1, s);
     }
 }

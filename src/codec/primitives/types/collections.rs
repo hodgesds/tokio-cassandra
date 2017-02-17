@@ -1,4 +1,4 @@
-use super::simple::CqlString;
+use super::cql_string::CqlString;
 use std::collections::HashMap;
 use tokio_core::io::EasyBuf;
 use super::*;
@@ -20,6 +20,10 @@ impl<T> CqlFrom<CqlStringList<T>, Vec<CqlString<T>>> for CqlStringList<T>
 {
     unsafe fn unchecked_from(lst: Vec<CqlString<T>>) -> CqlStringList<T> {
         CqlStringList { container: lst }
+    }
+
+    fn max_len() -> usize {
+        u16::max_value() as usize
     }
 }
 
@@ -78,6 +82,10 @@ impl<T> CqlFrom<CqlStringMap<T>, HashMap<CqlString<T>, CqlString<T>>> for CqlStr
     unsafe fn unchecked_from(map: HashMap<CqlString<T>, CqlString<T>>) -> CqlStringMap<T> {
         CqlStringMap { container: map }
     }
+
+    fn max_len() -> usize {
+        u16::max_value() as usize
+    }
 }
 
 impl<T> CqlStringMap<T>
@@ -117,6 +125,10 @@ impl<T> CqlFrom<CqlStringMultiMap<T>, HashMap<CqlString<T>, CqlStringList<T>>>
 {
     unsafe fn unchecked_from(map: HashMap<CqlString<T>, CqlStringList<T>>) -> CqlStringMultiMap<T> {
         CqlStringMultiMap { container: map }
+    }
+
+    fn max_len() -> usize {
+        u16::max_value() as usize
     }
 }
 
