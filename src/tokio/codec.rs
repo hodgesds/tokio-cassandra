@@ -114,12 +114,7 @@ impl<T: Io + 'static> multiplex::ClientProto<T> for CqlProtoV3 {
                         response::Message::Supported(msg) => {
                             println!("handshake: res = {:?}", msg);
                             let startup = request::StartupMessage {
-                                cql_version: msg.cql_version()
-                                    .ok_or(io::Error::new(io::ErrorKind::Other,
-                                                          "Expected CQL_VERSION to be in \
-                                                           StartupMessage"))?
-                                    .iter()
-                                    .next()
+                                cql_version: msg.latest_cql_version()
                                     .ok_or(io::Error::new(io::ErrorKind::Other,
                                                           "Expected CQL_VERSION to contain at \
                                                            least one version"))?

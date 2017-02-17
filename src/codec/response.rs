@@ -1,6 +1,7 @@
 use codec::primitives::{CqlFrom, CqlString, CqlStringList, CqlStringMultiMap};
 use codec::primitives::decode;
 use tokio_core::io::EasyBuf;
+use semver::Version;
 
 error_chain! {
     foreign_links {
@@ -25,12 +26,22 @@ error_chain! {
 pub struct SupportedMessage(pub CqlStringMultiMap<EasyBuf>);
 
 impl SupportedMessage {
-    pub fn cql_version(&self) -> Option<&CqlStringList<EasyBuf>> {
+    pub fn cql_versions(&self) -> Option<&CqlStringList<EasyBuf>> {
         self.0.get(unsafe { &CqlString::unchecked_from("CQL_VERSION") })
     }
 
     pub fn compression(&self) -> Option<&CqlStringList<EasyBuf>> {
         self.0.get(unsafe { &CqlString::unchecked_from("COMPRESSION") })
+    }
+
+    pub fn latest_cql_version(&self) -> Option<&CqlString<EasyBuf>> {
+        self.cql_versions()
+            .and_then(|lst| {
+                lst.iter()
+                    .filter_map(|v| Version::parse(v.as_ref()).ok().map(|vp| (vp, v)))
+                    .max_by_key(|t| t.0.clone())
+                    .map(|(_vp, v)| v)
+            })
     }
 }
 
@@ -61,7 +72,7 @@ pub trait CqlDecode<T> {
 #[cfg(test)]
 mod test {
     use codec::header::Header;
-    use codec::primitives::CqlStringList;
+    use codec::primitives::{CqlStringMultiMap, CqlStringList, CqlString};
     use super::*;
 
     fn skip_header(b: &[u8]) -> &[u8] {
@@ -79,7 +90,21 @@ mod test {
         let csl1 = CqlStringList::try_from_iter_easy(sla.iter().cloned()).unwrap();
         let csl2 = CqlStringList::try_from_iter_easy(slb.iter().cloned()).unwrap();
 
-        assert_eq!(res.cql_version().unwrap(), &csl1);
+        assert_eq!(res.cql_versions().unwrap(), &csl1);
         assert_eq!(res.compression().unwrap(), &csl2);
+    }
+
+    #[test]
+    fn supported_message_latest_cql_version() {
+        let versions = ["3.2.1", "3.1.2", "4.0.1"];
+        let vm = CqlStringList::try_from_iter_easy(versions.iter().cloned()).unwrap();
+        let smm = CqlStringMultiMap::try_from_iter(vec![(CqlString::try_from("CQL_VERSION")
+                                                             .unwrap(),
+                                                         vm)])
+            .unwrap();
+        let msg = SupportedMessage::from(smm);
+
+        assert_eq!(msg.latest_cql_version(),
+                   Some(&CqlString::try_from("4.0.1").unwrap()));
     }
 }
