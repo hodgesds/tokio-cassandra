@@ -70,7 +70,7 @@ impl<T> CqlString<T>
 
 impl From<CqlString<EasyBuf>> for CqlString<Vec<u8>> {
     fn from(string: CqlString<EasyBuf>) -> CqlString<Vec<u8>> {
-        CqlString { buf: Vec::from(string.as_bytes()) }
+        CqlString { buf: string.buf.into() }
     }
 }
 
