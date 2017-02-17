@@ -104,20 +104,15 @@ impl<T: Io + 'static> multiplex::ClientProto<T> for CqlProtoV3 {
         let transport = io.framed(CqlCodecV3::default());
         let handshake = transport.send((0, request::Message::Options))
             .and_then(|transport| transport.into_future().map_err(|(e, _)| e))
-            .and_then(|(res, transport)| match res {
-                None => {
-                    Err(io::Error::new(io::ErrorKind::Other,
-                                       "No reply received upon 'OPTIONS' message"))
-                }
-                Some((_id, res)) => {
-                    match res.message {
+            .and_then(|(res, transport)| {
+                res.ok_or_else(|| io_err("No reply received upon 'OPTIONS' message"))
+                    .and_then(|(_id, res)| match res.message {
                         response::Message::Supported(msg) => {
                             println!("handshake: res = {:?}", msg);
                             let startup = request::StartupMessage {
                                 cql_version: msg.latest_cql_version()
-                                    .ok_or(io::Error::new(io::ErrorKind::Other,
-                                                          "Expected CQL_VERSION to contain at \
-                                                           least one version"))?
+                                    .ok_or(io_err("Expected CQL_VERSION to contain at least one \
+                                                   version"))?
                                     .clone()
                                     .into(),
                                 compression: None,
@@ -125,28 +120,26 @@ impl<T: Io + 'static> multiplex::ClientProto<T> for CqlProtoV3 {
                             Ok((transport, startup))
                         }
                         msg => {
-                            Err(io::Error::new(io::ErrorKind::Other,
-                                               format!("Expected to receive 'SUPPORTED' message \
-                                                        but got {:?}",
-                                                       msg)))
+                            Err(io_err(format!("Expected to receive 'SUPPORTED' message but got \
+                                                {:?}",
+                                               msg)))
                         }
-                    }
-                }
+                    })
             })
-            .and_then(|(transport, msg)| {
-                transport.send((0, request::Message::Startup(msg)))
+            .and_then(|(transport, startup)| {
+                transport.send((0, request::Message::Startup(startup)))
                     .and_then(|transport| transport.into_future().map_err(|(e, _)| e))
-                    .and_then(|(res, transport)| match res {
-                        None => {
-                            Err(io::Error::new(io::ErrorKind::Other,
-                                               "No reply received upon 'STARTUP' message"))
-                        }
-                        Some((_id, res)) => {
-                            println!("handshake: res = {:?}", res);
-                            Ok(transport)
-                        }
+                    .and_then(|(res, transport)| {
+                        res.ok_or_else(|| io_err("No reply received upon 'STARTUP' message"))
+                            .map(|(_id, _res)| transport)
                     })
             });
         Box::new(handshake)
     }
+}
+
+fn io_err<S>(msg: S) -> io::Error
+    where S: Into<Box<::std::error::Error + Send + Sync>>
+{
+    io::Error::new(io::ErrorKind::Other, msg)
 }
