@@ -35,13 +35,13 @@ extern crate tokio_cassandra;
   * [ ] authenticated
 * **Codec**
   * [x] frame-header
-  * **Message Data Types**
+  * **Message Data Types (MDT)**
     * [x] int
     * [x] long
     * [x] short
     * [x] string
     * [x] long string
-    * [ ] uuid
+    * [ ] [uuid](#card-1774756)
     * [ ] option
     * [ ] option list
     * [ ] inet
