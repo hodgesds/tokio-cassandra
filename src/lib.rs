@@ -19,4 +19,5 @@ extern crate tokio_proto;
 extern crate semver;
 
 pub mod codec;
-pub mod tokio;
+mod tokio;
+pub use self::tokio::*;
