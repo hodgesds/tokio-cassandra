@@ -8,22 +8,27 @@ use tokio_core::net::TcpStream;
 use std::io;
 use std::net::SocketAddr;
 
-pub struct Client {
+pub struct ClientHandle {
     inner: multiplex::ClientService<TcpStream, CqlProto>,
 }
 
+pub struct Client {
+    pub protocol: CqlProto,
+}
+
 impl Client {
-    pub fn connect(addr: &SocketAddr,
+    pub fn connect(self,
+                   addr: &SocketAddr,
                    handle: &Handle)
-                   -> Box<Future<Item = Client, Error = io::Error>> {
-        let ret = TcpClient::new(CqlProto)
+                   -> Box<Future<Item = ClientHandle, Error = io::Error>> {
+        let ret = TcpClient::new(self.protocol)
             .connect(addr, handle)
-            .map(|_client_service| Client { inner: _client_service });
+            .map(|_client_service| ClientHandle { inner: _client_service });
         Box::new(ret)
     }
 }
 
-impl Service for Client {
+impl Service for ClientHandle {
     type Request = request::Message;
     type Response = Response;
     type Error = io::Error;

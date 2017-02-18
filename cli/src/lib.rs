@@ -26,8 +26,9 @@ mod scmds {
     use clap;
     use super::errors::*;
     use futures::Future;
-    use tokio_cassandra::tokio::Client;
+    use tokio_cassandra::tokio::{CqlProto, Client};
     use tokio_cassandra::codec::request;
+    use tokio_cassandra::codec::header::ProtocolVersion;
     use tokio_core::reactor::Core;
     use tokio_service::Service;
 
@@ -42,7 +43,8 @@ mod scmds {
         let mut core = Core::new().expect("Core can be created");
         let handle = core.handle();
 
-        let client = Client::connect(&addr, &handle)
+        let client = Client { protocol: CqlProto { version: ProtocolVersion::Version3 } }
+            .connect(&addr, &handle)
             .and_then(|client| client.call(request::Message::Options));
         core.run(client)
             .chain_err(|| format!("Failed to connect to {}:{}", host, port))

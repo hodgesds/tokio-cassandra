@@ -8,23 +8,25 @@ use tokio_proto::multiplex::{self, RequestId};
 use tokio_core::io::{EasyBuf, Codec, Io, Framed};
 use std::io;
 
+#[derive(PartialEq, Debug, Clone)]
 enum Machine {
     NeedHeader,
     WithHeader { header: Header, body_len: usize },
 }
 
+#[derive(PartialEq, Debug, Clone)]
 pub struct CqlCodec {
     state: Machine,
     pub flags: u8,
     version: ProtocolVersion,
 }
 
-impl Default for CqlCodec {
-    fn default() -> Self {
+impl CqlCodec {
+    fn new(v: ProtocolVersion) -> Self {
         CqlCodec {
             state: Machine::NeedHeader,
             flags: 0,
-            version: ProtocolVersion::Version3,
+            version: v,
         }
     }
 }
@@ -78,15 +80,17 @@ impl Codec for CqlCodec {
                     WithHeader { header, .. } => header,
                     _ => unreachable!(),
                 };
+                /* TODO: implement version mismatch test */
                 let code = h.op_code.clone();
+                let version = h.version.version;
                 Ok(Some((h.stream_id as RequestId,
                          Response {
                              header: h,
                              /* TODO: verify amount of consumed bytes equals the
                                                ones actually parsed */
-                             message: match_message(self.version, code,
+                             message: match_message(version, code,
                                                     buf.drain_to(body_len))
-                                 .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?,
+                                 .map_err(|err| io_err(err))?,
                          })))
             }
         }
@@ -104,7 +108,10 @@ impl Codec for CqlCodec {
     }
 }
 
-pub struct CqlProto;
+#[derive(PartialEq, Debug, Clone)]
+pub struct CqlProto {
+    pub version: ProtocolVersion,
+}
 
 impl<T: Io + 'static> multiplex::ClientProto<T> for CqlProto {
     type Request = request::Message;
@@ -113,7 +120,7 @@ impl<T: Io + 'static> multiplex::ClientProto<T> for CqlProto {
     type BindTransport = Box<Future<Item = Self::Transport, Error = io::Error>>;
 
     fn bind_transport(&self, io: T) -> Self::BindTransport {
-        let transport = io.framed(CqlCodec::default());
+        let transport = io.framed(CqlCodec::new(self.version));
         let handshake = transport.send((0, request::Message::Options))
             .and_then(|transport| transport.into_future().map_err(|(e, _)| e))
             .and_then(|(res, transport)| interpret_response_to_option(transport, res))
