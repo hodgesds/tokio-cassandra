@@ -23,11 +23,14 @@ extern crate tokio_cassandra;
 * test-first development - no code exists unless a test needs it to pass
 
 
-# Status
+# Library Status
+* **Multi-Protocol Support**
+  * [ ] [architecture and API](https://github.com/nhellwig/tokio-cassandra/issues/4)
+  * [ ] version 4
 * **Transport**
   * **Multiplexed**
     * [x] non-streaming
-    * [ ] streaming
+    * [ ] [streaming](https://github.com/nhellwig/tokio-cassandra/issues/3)
   * [x] unencrypted
   * [ ] encryption via TLS
 * **Connection**
@@ -41,11 +44,11 @@ extern crate tokio_cassandra;
     * [x] short
     * [x] string
     * [x] long string
-    * [ ] [uuid][#card-1774756]
-    * [ ] option
-    * [ ] option list
-    * [ ] inet
-    * [ ] consistency
+    * [ ] [uuid](https://github.com/nhellwig/tokio-cassandra/projects/2#card-1774756)
+    * [ ] [option](https://github.com/nhellwig/tokio-cassandra/projects/2#card-1774765)
+    * [ ] [option list](https://github.com/nhellwig/tokio-cassandra/projects/2#card-1774766)
+    * [ ] [inet](https://github.com/nhellwig/tokio-cassandra/projects/2#card-1774767)
+    * [ ] [consistency](https://github.com/nhellwig/tokio-cassandra/projects/2#card-1774768)
     * [x] string map
     * [x] string multi-map
   * **Messages**
@@ -97,3 +100,12 @@ extern crate tokio_cassandra;
     * [ ] timeuuid
     * [ ] tuple
     * [ ] UDT (User Defined Type)
+
+# Commandline Interface Status
+* **test-connection**
+  * [x] unauthenticated
+  * [ ] authenticated
+  * [ ] with-TLS
+  * [ ] choice of cql version to use
+  * [ ] choice of which protocol version to use
+  * [x] use latest-supported cql version
