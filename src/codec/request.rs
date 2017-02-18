@@ -1,4 +1,4 @@
-use codec::header::{OpCode, Header, Version};
+use codec::header::{ProtocolVersion, OpCode, Header, Version};
 use std::collections::HashMap;
 
 use codec::primitives::{CqlStringMap, CqlString};
@@ -21,7 +21,7 @@ error_chain! {
 }
 
 pub trait CqlEncode {
-    fn encode(&self, f: &mut Vec<u8>) -> Result<usize>;
+    fn encode(&self, v: ProtocolVersion, f: &mut Vec<u8>) -> Result<usize>;
 }
 
 pub enum Message {
@@ -36,7 +36,7 @@ pub struct StartupMessage {
 }
 
 impl CqlEncode for StartupMessage {
-    fn encode(&self, buf: &mut Vec<u8>) -> Result<usize> {
+    fn encode(&self, _v: ProtocolVersion, buf: &mut Vec<u8>) -> Result<usize> {
         use codec::primitives::CqlFrom;
 
         let mut sm: HashMap<CqlString<EasyBuf>, CqlString<EasyBuf>> = HashMap::new();
@@ -63,34 +63,36 @@ impl Message {
         }
 
     }
-    fn protocol_version(&self) -> Version {
-        Version::v3_request()
-    }
 }
 
 
 impl CqlEncode for Message {
-    fn encode(&self, buf: &mut Vec<u8>) -> Result<usize> {
+    fn encode(&self, v: ProtocolVersion, buf: &mut Vec<u8>) -> Result<usize> {
 
         match *self {
             Message::Options => Ok(0),
-            Message::Startup(ref msg) => msg.encode(buf),
+            Message::Startup(ref msg) => msg.encode(v, buf),
         }
     }
 }
 
 
-pub fn cql_encode(flags: u8, stream_id: u16, to_encode: Message, sink: &mut Vec<u8>) -> Result<()> {
+pub fn cql_encode(version: ProtocolVersion,
+                  flags: u8,
+                  stream_id: u16,
+                  to_encode: Message,
+                  sink: &mut Vec<u8>)
+                  -> Result<()> {
     sink.resize(Header::encoded_len(), 0);
 
-    let len = to_encode.encode(sink)?;
+    let len = to_encode.encode(version, sink)?;
     if len > u32::max_value() as usize {
         return Err(ErrorKind::BodyLengthExceeded(len).into());
     }
     let len = len as u32;
 
     let header = Header {
-        version: to_encode.protocol_version(),
+        version: Version::request(version),
         flags: flags,
         stream_id: stream_id,
         op_code: to_encode.opcode(),
@@ -107,6 +109,7 @@ pub fn cql_encode(flags: u8, stream_id: u16, to_encode: Message, sink: &mut Vec<
 #[cfg(test)]
 mod test {
     use super::*;
+    use codec::header::ProtocolVersion::*;
     use codec::primitives::CqlFrom;
 
     #[test]
@@ -116,7 +119,7 @@ mod test {
         let mut buf = Vec::new();
         let flags = 0;
         let stream_id = 270;
-        cql_encode(flags, stream_id, o, &mut buf).unwrap();
+        cql_encode(Version3, flags, stream_id, o, &mut buf).unwrap();
 
         let expected_bytes = b"\x03\x00\x01\x0e\x05\x00\x00\x00\x00";
 
@@ -133,7 +136,7 @@ mod test {
         let mut buf = Vec::new();
         let flags = 0;
         let stream_id = 1;
-        cql_encode(flags, stream_id, o, &mut buf).unwrap();
+        cql_encode(Version3, flags, stream_id, o, &mut buf).unwrap();
 
         let expected_bytes = include_bytes!("../../tests/fixtures/v3/requests/cli_startup.msg");
 

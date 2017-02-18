@@ -1,4 +1,5 @@
 use codec::request::{self, cql_encode};
+use codec::header::ProtocolVersion;
 use codec::header::{OpCode, Header};
 use codec::response::{self, Result, CqlDecode};
 
@@ -12,16 +13,18 @@ enum Machine {
     WithHeader { header: Header, body_len: usize },
 }
 
-pub struct CqlCodecV3 {
+pub struct CqlCodec {
     state: Machine,
     pub flags: u8,
+    version: ProtocolVersion,
 }
 
-impl Default for CqlCodecV3 {
+impl Default for CqlCodec {
     fn default() -> Self {
-        CqlCodecV3 {
+        CqlCodec {
             state: Machine::NeedHeader,
             flags: 0,
+            version: ProtocolVersion::Version3,
         }
     }
 }
@@ -32,16 +35,21 @@ pub struct Response {
     pub message: response::Message,
 }
 
-fn match_message(code: OpCode, buf: EasyBuf) -> Result<response::Message> {
+fn match_message(version: ProtocolVersion,
+                 code: OpCode,
+                 buf: EasyBuf)
+                 -> Result<response::Message> {
     use codec::header::OpCode::*;
     Ok(match code {
-        Supported => response::Message::Supported(response::SupportedMessage::decode(buf)?),
+        Supported => {
+            response::Message::Supported(response::SupportedMessage::decode(version, buf)?)
+        }
         Ready => response::Message::Ready,
         _ => unimplemented!(),
     })
 }
 
-impl Codec for CqlCodecV3 {
+impl Codec for CqlCodec {
     type In = (RequestId, Response);
     type Out = (RequestId, request::Message);
     fn decode(&mut self, buf: &mut EasyBuf) -> io::Result<Option<(RequestId, Response)>> {
@@ -76,7 +84,8 @@ impl Codec for CqlCodecV3 {
                              header: h,
                              /* TODO: verify amount of consumed bytes equals the
                                                ones actually parsed */
-                             message: match_message(code, buf.drain_to(body_len))
+                             message: match_message(self.version, code,
+                                                    buf.drain_to(body_len))
                                  .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?,
                          })))
             }
@@ -86,21 +95,25 @@ impl Codec for CqlCodecV3 {
     fn encode(&mut self, msg: (RequestId, request::Message), buf: &mut Vec<u8>) -> io::Result<()> {
         let (id, req) = msg;
 
-        cql_encode(self.flags, id as u16 /* FIXME safe cast */, req, buf)
+        cql_encode(self.version,
+                   self.flags,
+                   id as u16, /* FIXME safe cast */
+                   req,
+                   buf)
             .map_err(|err| io::Error::new(io::ErrorKind::Other, err))
     }
 }
 
-pub struct CqlProtoV3;
+pub struct CqlProto;
 
-impl<T: Io + 'static> multiplex::ClientProto<T> for CqlProtoV3 {
+impl<T: Io + 'static> multiplex::ClientProto<T> for CqlProto {
     type Request = request::Message;
     type Response = Response;
-    type Transport = Framed<T, CqlCodecV3>;
+    type Transport = Framed<T, CqlCodec>;
     type BindTransport = Box<Future<Item = Self::Transport, Error = io::Error>>;
 
     fn bind_transport(&self, io: T) -> Self::BindTransport {
-        let transport = io.framed(CqlCodecV3::default());
+        let transport = io.framed(CqlCodec::default());
         let handshake = transport.send((0, request::Message::Options))
             .and_then(|transport| transport.into_future().map_err(|(e, _)| e))
             .and_then(|(res, transport)| interpret_response_to_option(transport, res))
@@ -115,10 +128,9 @@ fn io_err<S>(msg: S) -> io::Error
     io::Error::new(io::ErrorKind::Other, msg)
 }
 
-fn interpret_response_to_option<T>
-    (transport: Framed<T, CqlCodecV3>,
-     res: Option<(u64, Response)>)
-     -> io::Result<(Framed<T, CqlCodecV3>, request::StartupMessage)>
+fn interpret_response_to_option<T>(transport: Framed<T, CqlCodec>,
+                                   res: Option<(u64, Response)>)
+                                   -> io::Result<(Framed<T, CqlCodec>, request::StartupMessage)>
     where T: Io + 'static
 {
     res.ok_or_else(|| io_err("No reply received upon 'OPTIONS' message"))
@@ -138,9 +150,9 @@ fn interpret_response_to_option<T>
         })
 }
 
-fn send_startup<T>(transport: Framed<T, CqlCodecV3>,
+fn send_startup<T>(transport: Framed<T, CqlCodec>,
                    startup: request::StartupMessage)
-                   -> Box<Future<Error = io::Error, Item = Framed<T, CqlCodecV3>> + 'static>
+                   -> Box<Future<Error = io::Error, Item = Framed<T, CqlCodec>> + 'static>
     where T: Io + 'static
 {
     Box::new(transport.send((0, request::Message::Startup(startup)))

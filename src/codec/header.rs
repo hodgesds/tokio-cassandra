@@ -245,7 +245,7 @@ impl Header {
 /// This document describe the version 3 of the protocol. For the changes made since
 /// version 2, see Section 10.
 #[cfg_attr(feature = "with-serde", derive(Deserialize, Serialize))]
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Debug, Clone, Copy)]
 pub enum ProtocolVersion {
     Version3,
 }
@@ -264,6 +264,13 @@ impl Version {
             0x83 => Version::v3_response(),
             _ => return Err(ErrorKind::UnsupportedVersion(b).into()),
         })
+    }
+
+    pub fn request(version: ProtocolVersion) -> Version {
+        Version {
+            version: version,
+            direction: Direction::Request,
+        }
     }
 
     pub fn encode(&self) -> u8 {
@@ -298,6 +305,8 @@ mod test {
     fn version() {
         assert_eq!(Version::v3_request().encode(), b'\x03');
         assert_eq!(Version::v3_response().encode(), b'\x83');
+        assert_eq!(Version::request(ProtocolVersion::Version3),
+                   Version::v3_request());
         assert_eq!(Version::try_from(b'\x03').unwrap(), Version::v3_request());
         assert_eq!(Version::try_from(b'\x83').unwrap(), Version::v3_response());
         assert!(Version::try_from(b'\x88').is_err());
