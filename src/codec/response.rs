@@ -24,6 +24,17 @@ error_chain! {
 }
 
 #[derive(Debug)]
+pub enum Message {
+    Supported(SupportedMessage),
+    Ready,
+    Authenticate(AuthenticateMessage),
+}
+
+pub trait CqlDecode<T> {
+    fn decode(v: ProtocolVersion, buf: ::tokio_core::io::EasyBuf) -> Result<T>;
+}
+
+#[derive(Debug)]
 pub struct SupportedMessage(pub CqlStringMultiMap<EasyBuf>);
 
 impl SupportedMessage {
@@ -46,12 +57,6 @@ impl SupportedMessage {
     }
 }
 
-#[derive(Debug)]
-pub enum Message {
-    Supported(SupportedMessage),
-    Ready,
-}
-
 impl CqlDecode<SupportedMessage> for SupportedMessage {
     fn decode(_v: ProtocolVersion, buf: ::tokio_core::io::EasyBuf) -> Result<SupportedMessage> {
         decode::string_multimap(buf)
@@ -66,8 +71,17 @@ impl From<CqlStringMultiMap<::tokio_core::io::EasyBuf>> for SupportedMessage {
     }
 }
 
-pub trait CqlDecode<T> {
-    fn decode(v: ProtocolVersion, buf: ::tokio_core::io::EasyBuf) -> Result<T>;
+#[derive(Debug)]
+pub struct AuthenticateMessage {
+    pub authenticator: CqlString<EasyBuf>,
+}
+
+impl CqlDecode<AuthenticateMessage> for AuthenticateMessage {
+    fn decode(_v: ProtocolVersion, buf: ::tokio_core::io::EasyBuf) -> Result<AuthenticateMessage> {
+        decode::string(buf)
+            .map(|d| AuthenticateMessage { authenticator: d.1 })
+            .map_err(|err| ErrorKind::ParserError(format!("{}", err)).into())
+    }
 }
 
 #[cfg(test)]
@@ -108,5 +122,16 @@ mod test {
 
         assert_eq!(msg.latest_cql_version(),
                    Some(&CqlString::try_from("4.0.1").unwrap()));
+    }
+
+    #[test]
+    fn decode_authenticate_message() {
+        let msg = include_bytes!("../../tests/fixtures/v3/responses/authenticate.msg");
+        let buf = Vec::from(skip_header(&msg[..])).into();
+        let res = AuthenticateMessage::decode(Version3, buf).unwrap();
+
+        let authenticator = CqlString::try_from("abcauth").unwrap();
+
+        assert_eq!(res.authenticator, authenticator);
     }
 }
