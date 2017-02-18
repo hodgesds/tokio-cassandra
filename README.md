@@ -17,26 +17,31 @@ extern crate tokio_cassandra;
 ```
 
 # Goals
-* implement cassandra v3 protocol leveraging the tokio ecosystem to the fullest. Stream as much as possible to reduce the amount of copies to a minium.
-* safety first - the client will verify all input received from the server
-* leave it flexible enough to easily provide support for protocol version 4
-* test-first development - no code exists unless a test needs it to pass
+* implement cassandra v3 protocol leveraging the tokio ecosystem to the fullest.
+* safety first - the client will verify all input received from the server.
+* test-first development - no code exists unless a test needs it to pass.
+* high-performance - stream as much as possible and reduce amount of allocations to a minimum.
+* leave it flexible enough to easily provide support for protocol version 4 and later 5.
+* develop breadth first - thus we are implementing orthogonal features first to learn how that affects the API and architecture, before implementing every single data-type or message-type.
+* strive for an MVP and version 1.0 fast, even if that includes only the most common usecases.
 
 
 # Library Status
-* **Multi-Protocol Support**
-  * [ ] [architecture and API](https://github.com/nhellwig/tokio-cassandra/issues/4)
-  * [ ] version 4
+* **Architecture and API**
+  * [ ] [multi-protocol-version support](https://github.com/nhellwig/tokio-cassandra/issues/4)
+* **Protocol Versions**
+  * [ ] v3
+  * [ ] v4
 * **Transport**
   * **Multiplexed**
     * [x] non-streaming
     * [ ] [streaming](https://github.com/nhellwig/tokio-cassandra/issues/3)
   * [x] unencrypted
-  * [ ] encryption via TLS
+  * [ ] [encryption via TLS](https://github.com/nhellwig/tokio-cassandra/issues/5)
 * **Connection**
   * [x] unauthenticated
   * [ ] authenticated
-* **Codec**
+* **Codec V3**
   * [x] frame-header
   * **Message Data Types (MDT)**
     * [x] int
