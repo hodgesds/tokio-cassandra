@@ -41,7 +41,7 @@ extern crate tokio_cassandra;
     * [x] short
     * [x] string
     * [x] long string
-    * [ ] [uuid](#card-1774756)
+    * [ ] [uuid][#card-1774756]
     * [ ] option
     * [ ] option list
     * [ ] inet
