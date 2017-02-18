@@ -133,7 +133,7 @@ impl OpCode {
 #[cfg_attr(feature = "with-serde", derive(Deserialize, Serialize))]
 #[derive(PartialEq, Debug, Clone)]
 pub struct Header {
-    pub version: ProtocolVersion,
+    pub version: Version,
 
     /// Flags applying to this frame. The flags have the following meaning (described
     /// by the mask that allow to select them):
@@ -187,12 +187,7 @@ impl Header {
             return Err(ErrorKind::InvalidDataLength(b.len()).into());
         }
 
-        let version = match b[0] {
-            0x03 => ProtocolVersion::Version3(Direction::Request),
-            0x83 => ProtocolVersion::Version3(Direction::Response),
-            _ => return Err(ErrorKind::UnsupportedVersion(b[0]).into()),
-        };
-
+        let version = Version::try_from(b[0])?;
         Ok(Header {
             version: version,
             flags: b[1],
@@ -211,11 +206,7 @@ impl Header {
     }
 
     pub fn encode(&self) -> Result<[u8; 9]> {
-        let version = match self.version {
-            ProtocolVersion::Version3(Direction::Request) => 0x03,
-            ProtocolVersion::Version3(Direction::Response) => 0x83,
-        };
-
+        let version = self.version.encode();
         let mut buf = [0; 9];
         buf[0] = version;
         buf[1] = self.flags;
@@ -256,7 +247,43 @@ impl Header {
 #[cfg_attr(feature = "with-serde", derive(Deserialize, Serialize))]
 #[derive(PartialEq, Debug, Clone)]
 pub enum ProtocolVersion {
-    Version3(Direction),
+    Version3,
+}
+
+#[cfg_attr(feature = "with-serde", derive(Deserialize, Serialize))]
+#[derive(PartialEq, Debug, Clone)]
+pub struct Version {
+    pub version: ProtocolVersion,
+    pub direction: Direction,
+}
+
+impl Version {
+    pub fn try_from(b: u8) -> Result<Version> {
+        Ok(match b {
+            0x03 => Version::v3_request(),
+            0x83 => Version::v3_response(),
+            _ => return Err(ErrorKind::UnsupportedVersion(b).into()),
+        })
+    }
+
+    pub fn encode(&self) -> u8 {
+        match (&self.version, &self.direction) {
+            (&ProtocolVersion::Version3, &Direction::Request) => 0x03,
+            (&ProtocolVersion::Version3, &Direction::Response) => 0x83,
+        }
+    }
+    pub fn v3_response() -> Version {
+        Version {
+            version: ProtocolVersion::Version3,
+            direction: Direction::Response,
+        }
+    }
+    pub fn v3_request() -> Version {
+        Version {
+            version: ProtocolVersion::Version3,
+            direction: Direction::Request,
+        }
+    }
 }
 
 #[cfg(test)]
@@ -268,11 +295,20 @@ mod test {
     use super::*;
 
     #[test]
+    fn version() {
+        assert_eq!(Version::v3_request().encode(), b'\x03');
+        assert_eq!(Version::v3_response().encode(), b'\x83');
+        assert_eq!(Version::try_from(b'\x03').unwrap(), Version::v3_request());
+        assert_eq!(Version::try_from(b'\x83').unwrap(), Version::v3_response());
+        assert!(Version::try_from(b'\x88').is_err());
+    }
+
+    #[test]
     fn complete_decode() {
         let bytes = b"\x03\x00\x01\x01\x05\x00\x00\x01\x05";
         let h = Header::try_from(&bytes[..]).unwrap();
 
-        assert_eq!(h.version, ProtocolVersion::Version3(Direction::Request));
+        assert_eq!(h.version, Version::v3_request());
         assert_eq!(h.is_compressed(), false);
         assert_eq!(h.is_traced(), false);
         assert_eq!(h.stream_id, 257);
@@ -283,7 +319,7 @@ mod test {
     #[test]
     fn complete_encode() {
         let h = Header {
-            version: ProtocolVersion::Version3(Direction::Request),
+            version: Version::v3_request(),
             flags: 0x00,
             stream_id: 257,
             op_code: OpCode::Options,
@@ -300,7 +336,7 @@ mod test {
         let bytes = b"\x83\x00\x01\x01\x05\x00\x00\x01\x05";
         let h = Header::try_from(&bytes[..]).unwrap();
 
-        assert_eq!(h.version, ProtocolVersion::Version3(Direction::Response));
+        assert_eq!(h.version, Version::v3_response());
     }
 
     #[test]

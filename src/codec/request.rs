@@ -1,4 +1,4 @@
-use codec::header::{OpCode, Header, ProtocolVersion, Direction};
+use codec::header::{OpCode, Header, Version};
 use std::collections::HashMap;
 
 use codec::primitives::{CqlStringMap, CqlString};
@@ -63,8 +63,8 @@ impl Message {
         }
 
     }
-    fn protocol_version() -> ProtocolVersion {
-        ProtocolVersion::Version3(Direction::Request)
+    fn protocol_version(&self) -> Version {
+        Version::v3_request()
     }
 }
 
@@ -90,7 +90,7 @@ pub fn cql_encode(flags: u8, stream_id: u16, to_encode: Message, sink: &mut Vec<
     let len = len as u32;
 
     let header = Header {
-        version: Message::protocol_version(),
+        version: to_encode.protocol_version(),
         flags: flags,
         stream_id: stream_id,
         op_code: to_encode.opcode(),
