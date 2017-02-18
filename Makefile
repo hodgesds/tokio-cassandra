@@ -3,10 +3,14 @@ CLI_EXECUTABLE=target/debug/tcc
 help:
 	$(info Available Targets)
 	$(info --------------------------)
+	$(info toc                  | generate table of contents for README.md via doctoc)
 	$(info unit-tests           | Run tests that don't need a cassandra node running)
 	$(info integration-tests    | Run tests that use a cassandra node)
 	$(info debug-cli-tests      | Run the cli with certain arguments to help debugging - needs debug-docker-db)
 	$(info debug-docker-db      | Bring up a cassandra database for local usage on 9042)
+
+toc:
+	doctoc --github --title "A Cassandra Native Protocol 3 implementation using Tokio for IO." README.md
 	
 unit-tests:
 	cargo doc

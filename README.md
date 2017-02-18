@@ -1,7 +1,19 @@
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+A Cassandra Native Protocol 3 implementation using Tokio for IO.
+
+- [Usage](#usage)
+- [Goals](#goals)
+  - [General](#general)
+  - [Minimal Viable Product and v1.0](#minimal-viable-product-and-v10)
+- [Status](#status)
+  - [Commandline Interface](#commandline-interface)
+  - [Library](#library)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 [![Build Status linux+osx](https://travis-ci.org/nhellwig/tokio-cassandra.svg?branch=master)](https://travis-ci.org/nhellwig/tokio-cassandra)
 [![crates.io version](https://img.shields.io/crates/v/tokio-cassandra.svg)](https://crates.io/crates/tokio-cassandra)
-
-A Cassandra Native Protocol 3 implementation using Tokio for IO.
 
 # Usage
 
