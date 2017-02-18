@@ -132,3 +132,19 @@ extern crate tokio_cassandra;
     * [ ] timeuuid
     * [ ] tuple
     * [ ] UDT (User Defined Type)
+* **Codec V4**
+  * **Messages**
+    * [ ] Changes to the paging state of Result messages
+    * [ ] Read_failure error code
+    * **Resquests**
+      * [ ] custom QueryHandler suppoert for QUERY, PREPARE, EXECUTE and BATCH
+    * **Responses**
+      * [ ] Warnings support
+      * **Result**
+        * [ ] New Schema-Change format
+        * [ ] Prepared message includes partition key
+  * **Data Serialization Formats**
+    * [ ] date
+    * [ ] time
+    * [ ] tinyint
+    * [ ] smallint
