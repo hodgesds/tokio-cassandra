@@ -1,7 +1,7 @@
 use codec::request;
 use codec::header::ProtocolVersion;
 use tokio_service::Service;
-use futures::Future;
+use futures::{Stream, Future};
 use tokio_core::reactor::Handle;
 use tokio_proto::util::client_proxy::ClientProxy;
 use tokio_proto::multiplex;
@@ -70,7 +70,7 @@ impl<T: Io + 'static> ClientProto<T> for CqlProto {
     /// `Framed<T, LineCodec>` is the return value of `io.framed(LineCodec)`
     type Transport = Framed<T, CqlCodec>;
     type BindTransport = Result<Self::Transport, io::Error>;
-    //    type BindTransport = Box<Future<Item = Self::Transport, Error = io::Error>>;
+    //        type BindTransport = Box<Future<Item = Self::Transport, Error = io::Error>>;
 
     fn bind_transport(&self, io: T) -> Self::BindTransport {
         let handshake = io.framed(CqlCodec::new(self.version));
@@ -113,34 +113,20 @@ impl Service for ClientHandle {
     }
 }
 
-//pub struct Client {
-//    pub protocol: CqlProto,
-//}
+/// Currently acts more like a builder, and the desired semantics are yet to be determined.
+pub struct Client {
+    pub protocol: CqlProto,
+}
 
-//impl Client {
-//    pub fn connect(self,
-//                   addr: &SocketAddr,
-//                   handle: &Handle)
-//                   -> Box<Future<Item = ClientHandle, Error = io::Error>> {
-//        let ret = TcpClient::new(self.protocol)
-//            .connect(addr, handle)
-//            .map(|_client_service| ClientHandle { inner: _client_service });
-//        Box::new(ret)
-//    }
-//}
-//
-//use codec::request::cql_encode;
-//use codec::header::ProtocolVersion;
-//use codec::header::{OpCode, Header};
-//use codec::response::{self, Result, CqlDecode};
-//
-//use futures::{Sink, Stream};
-//use tokio_proto::multiplex::RequestId;
-//use tokio_core::io::{EasyBuf, Codec, Io, Framed};
-//
-//#[derive(PartialEq, Debug, Clone)]
-//enum Machine {
-//    NeedHeader,
-//    WithHeader { header: Header, body_len: usize },
-//}
-//
+impl Client {
+    pub fn connect(self,
+                   addr: &SocketAddr,
+                   handle: &Handle)
+                   -> Box<Future<Item = ClientHandle, Error = io::Error>> {
+        let ret = TcpClient::new(self.protocol)
+            .connect(addr, handle)
+            .map(|client_proxy| ClientHandle { inner: client_proxy });
+        Box::new(ret)
+    }
+}
+

@@ -51,6 +51,7 @@ extern crate tokio_cassandra;
   * [ ] with-TLS
   * [ ] choice of cql version to use
   * [ ] choice of which protocol version to use
+  * [ ] host-name resolution
   * [x] use latest-supported cql version
 
 ## Library
@@ -67,7 +68,7 @@ extern crate tokio_cassandra;
   * [ ] [encryption via TLS](https://github.com/nhellwig/tokio-cassandra/issues/5)
 * **Connection**
   * [x] unauthenticated
-  * [ ] authenticated
+  * [ ] [authenticated](https://github.com/nhellwig/tokio-cassandra/issues/7)
 * **Codec V3**
   * [x] frame-header
   * **Message Data Types (MDT)**
