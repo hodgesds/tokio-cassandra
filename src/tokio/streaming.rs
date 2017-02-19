@@ -5,12 +5,12 @@ use futures::Future;
 use tokio_core::reactor::Handle;
 use tokio_proto::util::client_proxy::ClientProxy;
 use tokio_proto::streaming::{Message, Body};
-use tokio_proto::streaming::multiplex::{ClientProto, Frame, RequestId};
+use tokio_proto::streaming::multiplex::{ClientProto, Frame};
 use tokio_proto::TcpClient;
 use tokio_core::io::{EasyBuf, Codec, Io, Framed};
 use std::io;
 use std::net::SocketAddr;
-use super::shared::perform_handshake;
+use super::shared::{SimpleRequest, SimpleResponse, perform_handshake};
 use super::simple;
 
 /// The response type of the streaming protocol
@@ -43,9 +43,12 @@ impl CqlCodec {
     }
 }
 
+type CodecInputFrame = Frame<simple::Response, simple::Response, io::Error>;
+type CodecOutputFrame = Frame<request::Message, request::Message, io::Error>;
+
 impl Codec for CqlCodec {
-    type In = Frame<simple::Response, simple::Response, io::Error>;
-    type Out = Frame<request::Message, request::Message, io::Error>;
+    type In = CodecInputFrame;
+    type Out = CodecOutputFrame;
     fn decode(&mut self, _buf: &mut EasyBuf) -> Result<Option<Self::In>, io::Error> {
         unimplemented!()
     }
@@ -53,13 +56,6 @@ impl Codec for CqlCodec {
         unimplemented!()
     }
 }
-
-//impl From<(RequestId, simple::Response)> for Frame<simple::Response,
-// simple::Response, io::Error> {
-//    fn from(f: (RequestId, simple::Response)) -> Self {
-//        unimplemented!()
-//    }
-//}
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct CqlProto {
@@ -75,13 +71,37 @@ impl<T: Io + 'static> ClientProto<T> for CqlProto {
 
     /// `Framed<T, LineCodec>` is the return value of `io.framed(LineCodec)`
     type Transport = Framed<T, CqlCodec>;
-    type BindTransport = Result<Self::Transport, io::Error>;
-    //    type BindTransport = Box<Future<Item = Self::Transport, Error = io::Error>>;
+    type BindTransport = Box<Future<Item = Self::Transport, Error = io::Error>>;
 
     fn bind_transport(&self, io: T) -> Self::BindTransport {
-        Ok(io.framed(CqlCodec::new(self.version)))
-        //        let transport = io.framed(CqlCodec::new(self.version));
-        //        perform_handshake(transport)
+        let transport = io.framed(CqlCodec::new(self.version));
+        perform_handshake(transport)
+    }
+}
+
+impl From<CodecInputFrame> for SimpleResponse {
+    fn from(f: CodecInputFrame) -> Self {
+        match f {
+            Frame::Message { id, message, .. } => SimpleResponse(id, message),
+            Frame::Error { .. } => {
+                // TODO: handle frame errors, or assure they can't happen
+                panic!("Cannot handle frame errors right now!")
+            }
+            Frame::Body { .. } => {
+                panic!("Streamed bodies must not happen for the simple responses we expect here")
+            }
+        }
+    }
+}
+
+impl From<SimpleRequest> for CodecOutputFrame {
+    fn from(SimpleRequest(id, msg): SimpleRequest) -> Self {
+        Frame::Message {
+            id: id,
+            message: msg,
+            body: false,
+            solo: true,
+        }
     }
 }
 

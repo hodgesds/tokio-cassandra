@@ -7,7 +7,8 @@ use futures::Future;
 use tokio_proto::multiplex::{self, RequestId};
 use tokio_core::io::{EasyBuf, Codec, Io, Framed};
 use std::io;
-use super::super::shared::{io_err, decode_complete_message_by_opcode, perform_handshake};
+use super::super::shared::{io_err, decode_complete_message_by_opcode, perform_handshake,
+                           SimpleResponse, SimpleRequest};
 
 #[derive(PartialEq, Debug, Clone)]
 enum Machine {
@@ -111,5 +112,17 @@ impl<T: Io + 'static> multiplex::ClientProto<T> for CqlProto {
     fn bind_transport(&self, io: T) -> Self::BindTransport {
         let transport = io.framed(CqlCodec::new(self.version));
         perform_handshake(transport)
+    }
+}
+
+impl From<(RequestId, Response)> for SimpleResponse {
+    fn from((id, res): (RequestId, Response)) -> Self {
+        SimpleResponse(id, res)
+    }
+}
+
+impl From<SimpleRequest> for (RequestId, request::Message) {
+    fn from(SimpleRequest(id, res): SimpleRequest) -> Self {
+        (id, res)
     }
 }

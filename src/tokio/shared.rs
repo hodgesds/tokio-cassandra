@@ -30,20 +30,8 @@ pub fn io_err<S>(msg: S) -> io::Error
     io::Error::new(io::ErrorKind::Other, msg)
 }
 
-pub struct SimpleResponse(RequestId, simple::Response);
-
-impl From<(RequestId, simple::Response)> for SimpleResponse {
-    fn from((id, res): (RequestId, simple::Response)) -> Self {
-        SimpleResponse(id, res)
-    }
-}
-
-pub struct SimpleRequest(RequestId, request::Message);
-impl From<SimpleRequest> for (RequestId, request::Message) {
-    fn from(SimpleRequest(id, res): SimpleRequest) -> Self {
-        (id, res)
-    }
-}
+pub struct SimpleResponse(pub RequestId, pub simple::Response);
+pub struct SimpleRequest(pub RequestId, pub request::Message);
 
 pub fn perform_handshake<T, C>(transport: Framed<T, C>)
                                -> Box<Future<Item = Framed<T, C>, Error = io::Error>>
