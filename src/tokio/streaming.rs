@@ -129,4 +129,3 @@ impl Client {
         Box::new(ret)
     }
 }
-

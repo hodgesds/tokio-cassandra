@@ -110,11 +110,7 @@ impl<T: Io + 'static> multiplex::ClientProto<T> for CqlProto {
 
     fn bind_transport(&self, io: T) -> Self::BindTransport {
         let transport = io.framed(CqlCodec::new(self.version));
-        let handshake = transport.send((0, request::Message::Options))
-            .and_then(|transport| transport.into_future().map_err(|(e, _)| e))
-            .and_then(|(res, transport)| interpret_response_to_option(transport, res))
-            .and_then(|(transport, startup)| send_startup(transport, startup));
-        Box::new(handshake)
+        perform_handshake(transport)
     }
 }
 
@@ -122,6 +118,16 @@ fn io_err<S>(msg: S) -> io::Error
     where S: Into<Box<::std::error::Error + Send + Sync>>
 {
     io::Error::new(io::ErrorKind::Other, msg)
+}
+
+fn perform_handshake<T>(transport: Framed<T, CqlCodec>)
+                        -> Box<Future<Item = Framed<T, CqlCodec>, Error = io::Error>>
+    where T: Io + 'static
+{
+    Box::new(transport.send((0, request::Message::Options))
+        .and_then(|transport| transport.into_future().map_err(|(e, _)| e))
+        .and_then(|(res, transport)| interpret_response_to_option(transport, res))
+        .and_then(|(transport, startup)| send_startup(transport, startup)))
 }
 
 fn interpret_response_to_option<T>(transport: Framed<T, CqlCodec>,
