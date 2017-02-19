@@ -1,6 +1,4 @@
 //! Code shared by streaming and simple protocol versions
-use super::simple;
-
 use tokio_core::io::EasyBuf;
 use codec::header::{OpCode, ProtocolVersion};
 use codec::response::{self, CqlDecode};
@@ -30,7 +28,7 @@ pub fn io_err<S>(msg: S) -> io::Error
     io::Error::new(io::ErrorKind::Other, msg)
 }
 
-pub struct SimpleResponse(pub RequestId, pub simple::Response);
+pub struct SimpleResponse(pub RequestId, pub response::Message);
 pub struct SimpleRequest(pub RequestId, pub request::Message);
 
 pub fn perform_handshake<T, C>(transport: Framed<T, C>)
@@ -46,7 +44,7 @@ pub fn perform_handshake<T, C>(transport: Framed<T, C>)
             res.ok_or_else(|| io_err("No reply received upon 'OPTIONS' message"))
                 .and_then(|response| {
                     let SimpleResponse(_id, res) = response.into();
-                    match res.message {
+                    match res {
                         response::Message::Supported(msg) => {
                             let startup = request::StartupMessage {
                                 cql_version: msg.latest_cql_version()

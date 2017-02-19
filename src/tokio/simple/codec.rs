@@ -33,13 +33,8 @@ impl CqlCodec {
     }
 }
 
-#[derive(Debug)]
-pub struct Response {
-    pub message: response::Message,
-}
-
 impl Codec for CqlCodec {
-    type In = (RequestId, Response);
+    type In = (RequestId, response::Message);
     type Out = (RequestId, request::Message);
     fn decode(&mut self, buf: &mut EasyBuf) -> io::Result<Option<Self::In>> {
         use self::Machine::*;
@@ -73,13 +68,12 @@ impl Codec for CqlCodec {
                 let code = h.op_code.clone();
                 let version = h.version.version;
                 Ok(Some((h.stream_id as RequestId,
-                         Response {
                              /* TODO: verify amount of consumed bytes equals the
                                                ones actually parsed */
-                             message: decode_complete_message_by_opcode(version, code,
+                             decode_complete_message_by_opcode(version, code,
                                                     buf.drain_to(body_len))
                                  .map_err(|err| io_err(err))?,
-                         })))
+                         )))
             }
         }
     }
@@ -103,7 +97,7 @@ pub struct CqlProto {
 
 impl<T: Io + 'static> multiplex::ClientProto<T> for CqlProto {
     type Request = request::Message;
-    type Response = Response;
+    type Response = response::Message;
     type Transport = Framed<T, CqlCodec>;
     type BindTransport = Box<Future<Item = Self::Transport, Error = io::Error>>;
 
@@ -113,8 +107,8 @@ impl<T: Io + 'static> multiplex::ClientProto<T> for CqlProto {
     }
 }
 
-impl From<(RequestId, Response)> for SimpleResponse {
-    fn from((id, res): (RequestId, Response)) -> Self {
+impl From<(RequestId, response::Message)> for SimpleResponse {
+    fn from((id, res): (RequestId, response::Message)) -> Self {
         SimpleResponse(id, res)
     }
 }

@@ -13,7 +13,6 @@ use std::{io, mem};
 use std::net::SocketAddr;
 use super::shared::{io_err, decode_complete_message_by_opcode, SimpleRequest, SimpleResponse,
                     perform_handshake};
-use super::simple;
 
 /// A chunk of a result - similar to response::ResultMessage, but only a chunk of it
 /// TODO: this is just a dummy to show the intent - this is likely to change
@@ -36,17 +35,6 @@ pub enum StreamingMessage {
     Ready,
 }
 
-#[derive(Debug)]
-pub struct Response {
-    pub message: StreamingMessage,
-}
-
-impl From<Response> for simple::Response {
-    fn from(f: Response) -> Self {
-        simple::Response { message: f.message.into() }
-    }
-}
-
 impl From<StreamingMessage> for response::Message {
     fn from(f: StreamingMessage) -> Self {
         use self::StreamingMessage::*;
@@ -60,19 +48,17 @@ impl From<StreamingMessage> for response::Message {
     }
 }
 
-impl From<response::Message> for Response {
+impl From<response::Message> for StreamingMessage {
     fn from(f: response::Message) -> Self {
-        Response {
-            message: match f {
-                response::Message::Ready => StreamingMessage::Ready,
-                response::Message::Supported(msg) => StreamingMessage::Supported(msg),
-            },
+        match f {
+            response::Message::Ready => StreamingMessage::Ready,
+            response::Message::Supported(msg) => StreamingMessage::Supported(msg),
         }
     }
 }
 
 type ResponseStream = Body<ChunkedMessage, io::Error>;
-type ResponseMessage = Message<Response, ResponseStream>;
+type ResponseMessage = Message<StreamingMessage, ResponseStream>;
 
 type RequestMessage = Message<request::Message, RequestStream>;
 type RequestStream = Body<request::Message, io::Error>;
@@ -102,7 +88,7 @@ impl CqlCodec {
     }
 }
 
-type CodecInputFrame = Frame<Response, ChunkedMessage, io::Error>;
+type CodecInputFrame = Frame<StreamingMessage, ChunkedMessage, io::Error>;
 type CodecOutputFrame = Frame<request::Message, request::Message, io::Error>;
 
 impl From<SimpleRequest> for CodecOutputFrame {
@@ -189,7 +175,7 @@ pub struct CqlProto {
 impl<T: Io + 'static> ClientProto<T> for CqlProto {
     type Request = request::Message;
     type RequestBody = request::Message;
-    type Response = Response;
+    type Response = StreamingMessage;
     type ResponseBody = ChunkedMessage;
     type Error = io::Error;
 
@@ -229,20 +215,18 @@ impl From<request::Message> for RequestMessage {
     }
 }
 
-impl From<ResponseMessage> for Response {
+impl From<ResponseMessage> for StreamingMessage {
     fn from(msg: ResponseMessage) -> Self {
         match msg {
             Message::WithoutBody(res) => res,
-            Message::WithBody(_head, bodystream) => {
-                Response { message: StreamingMessage::Partial(bodystream) }
-            }
+            Message::WithBody(_head, bodystream) => StreamingMessage::Partial(bodystream),
         }
     }
 }
 
 impl Service for ClientHandle {
     type Request = request::Message;
-    type Response = Response;
+    type Response = StreamingMessage;
     type Error = io::Error;
     type Future = Box<Future<Item = Self::Response, Error = Self::Error>>;
 

@@ -1,5 +1,5 @@
-use super::{Response, CqlProto};
-use codec::request;
+use super::CqlProto;
+use codec::{response, request};
 use tokio_service::Service;
 use futures::Future;
 use tokio_core::reactor::Handle;
@@ -30,7 +30,7 @@ impl Client {
 
 impl Service for ClientHandle {
     type Request = request::Message;
-    type Response = Response;
+    type Response = response::Message;
     type Error = io::Error;
     type Future = Box<Future<Item = Self::Response, Error = Self::Error>>;
 
