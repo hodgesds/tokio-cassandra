@@ -41,7 +41,7 @@ pub struct Response {
 impl Codec for CqlCodec {
     type In = (RequestId, Response);
     type Out = (RequestId, request::Message);
-    fn decode(&mut self, buf: &mut EasyBuf) -> io::Result<Option<(RequestId, Response)>> {
+    fn decode(&mut self, buf: &mut EasyBuf) -> io::Result<Option<Self::In>> {
         use self::Machine::*;
         match self.state {
             NeedHeader => {

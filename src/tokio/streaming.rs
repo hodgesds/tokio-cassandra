@@ -3,6 +3,7 @@ use codec::header::ProtocolVersion;
 use tokio_service::Service;
 use futures::Future;
 use tokio_core::reactor::Handle;
+use tokio_proto::util::client_proxy::ClientProxy;
 use tokio_proto::multiplex;
 use tokio_proto::streaming::{Message, Body};
 use tokio_proto::streaming::multiplex::{ClientProto, Frame};
@@ -22,7 +23,10 @@ pub enum Response {
 
 /// Represents a response that arrives in one or more chunks.
 type ResponseStream = Body<simple::Response, io::Error>;
+type RequestStream = Body<request::Message, io::Error>;
+
 type ResponseMessage = Message<simple::Response, ResponseStream>;
+type RequestMessage = Message<request::Message, RequestStream>;
 
 
 #[derive(PartialEq, Debug, Clone)]
@@ -78,68 +82,37 @@ impl<T: Io + 'static> ClientProto<T> for CqlProto {
         Ok(handshake)
     }
 }
-//
-//
-//fn match_message(version: ProtocolVersion,
-//                 code: OpCode,
-//                 buf: EasyBuf)
-//                 -> Result<response::Message> {
-//    use codec::header::OpCode::*;
-//    Ok(match code {
-//        Supported => {
-//            response::Message::Supported(response::SupportedMessage::decode(version, buf)?)
-//        }
-//        Ready => response::Message::Ready,
-//        _ => unimplemented!(),
-//    })
-//}
-//
-//
-//fn io_err<S>(msg: S) -> io::Error
-//    where S: Into<Box<::std::error::Error + Send + Sync>>
-//{
-//    io::Error::new(io::ErrorKind::Other, msg)
-//}
-//
-//fn interpret_response_to_option<T>(transport: Framed<T, CqlCodec>,
-//                                   res: Option<(u64, Response)>)
-//                                   -> io::Result<(Framed<T, CqlCodec>, request::StartupMessage)>
-//    where T: Io + 'static
-//{
-//    res.ok_or_else(|| io_err("No reply received upon 'OPTIONS' message"))
-//        .and_then(|(_id, res)| match res.message {
-//            response::Message::Supported(msg) => {
-//                let startup = request::StartupMessage {
-//                    cql_version: msg.latest_cql_version()
-//                        .ok_or(io_err("Expected CQL_VERSION to contain at least one version"))?
-//                        .clone(),
-//                    compression: None,
-//                };
-//                Ok((transport, startup))
-//            }
-//            msg => {
-//                Err(io_err(format!("Expected to receive 'SUPPORTED' message but got {:?}", msg)))
-//            }
-//        })
-//}
-//
-//fn send_startup<T>(transport: Framed<T, CqlCodec>,
-//                   startup: request::StartupMessage)
-//                   -> Box<Future<Error = io::Error, Item = Framed<T, CqlCodec>> + 'static>
-//    where T: Io + 'static
-//{
-//    Box::new(transport.send((0, request::Message::Startup(startup)))
-//        .and_then(|transport| transport.into_future().map_err(|(e, _)| e))
-//        .and_then(|(res, transport)| {
-//            res.ok_or_else(|| io_err("No reply received upon 'STARTUP' message"))
-//                .map(|(_id, _res)| transport)
-//        }))
-//}
-//
-//pub struct ClientHandle {
-//    inner: multiplex::ClientService<TcpStream, CqlProto>,
-//}
-//
+
+pub struct ClientHandle {
+    inner: ClientProxy<RequestMessage, ResponseMessage, io::Error>,
+}
+
+impl From<request::Message> for RequestMessage {
+    fn from(msg: request::Message) -> Self {
+        Message::WithoutBody(msg)
+    }
+}
+
+impl From<ResponseMessage> for Response {
+    fn from(msg: ResponseMessage) -> Self {
+        match msg {
+            Message::WithoutBody(msg) => Response::Once(msg),
+            Message::WithBody(_head, body) => Response::Stream(body),
+        }
+    }
+}
+
+impl Service for ClientHandle {
+    type Request = request::Message;
+    type Response = Response;
+    type Error = io::Error;
+    type Future = Box<Future<Item = Self::Response, Error = Self::Error>>;
+
+    fn call(&self, req: Self::Request) -> Self::Future {
+        self.inner.call(req.into()).map(From::from).boxed()
+    }
+}
+
 //pub struct Client {
 //    pub protocol: CqlProto,
 //}
@@ -155,18 +128,6 @@ impl<T: Io + 'static> ClientProto<T> for CqlProto {
 //        Box::new(ret)
 //    }
 //}
-//
-//impl Service for ClientHandle {
-//    type Request = request::Message;
-//    type Response = Response;
-//    type Error = io::Error;
-//    type Future = Box<Future<Item = Self::Response, Error = Self::Error>>;
-//
-//    fn call(&self, req: Self::Request) -> Self::Future {
-//        self.inner.call(req).boxed()
-//    }
-//}
-//
 //
 //use codec::request::cql_encode;
 //use codec::header::ProtocolVersion;
