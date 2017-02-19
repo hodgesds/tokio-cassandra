@@ -11,8 +11,8 @@ use tokio_proto::TcpClient;
 use tokio_core::io::{EasyBuf, Codec, Io, Framed};
 use std::{io, mem};
 use std::net::SocketAddr;
-use super::shared::{io_err, decode_complete_message_by_opcode, SimpleRequest, SimpleResponse,
-                    perform_handshake};
+use super::utils::{io_err, decode_complete_message_by_opcode, SimpleRequest, SimpleResponse,
+                   perform_handshake};
 
 /// A chunk of a result - similar to response::ResultMessage, but only a chunk of it
 /// TODO: this is just a dummy to show the intent - this is likely to change
@@ -194,8 +194,7 @@ impl From<CodecInputFrame> for SimpleResponse {
         match f {
             Frame::Message { id, message, .. } => SimpleResponse(id, message.into()),
             Frame::Error { .. } => {
-                // TODO: handle frame errors, or assure they can't happen
-                panic!("Cannot handle frame errors right now!")
+                panic!("Frame errors cannot happen here - this is only done during the handshake")
             }
             Frame::Body { .. } => {
                 panic!("Streamed bodies must not happen for the simple responses we expect here")

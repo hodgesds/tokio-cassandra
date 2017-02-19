@@ -1,3 +1,5 @@
-pub mod simple;
+mod easy;
 pub mod streaming;
-mod shared;
+mod utils;
+
+pub use self::easy::*;

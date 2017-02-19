@@ -27,6 +27,7 @@ mod scmds {
     use super::errors::*;
     use futures::Future;
     use tokio_cassandra::streaming::{CqlProto, Client};
+    use tokio_cassandra::EasyClientHandle;
     use tokio_cassandra::codec::request;
     use tokio_cassandra::codec::header::ProtocolVersion;
     use tokio_core::reactor::Core;
@@ -45,7 +46,12 @@ mod scmds {
 
         let client = Client { protocol: CqlProto { version: ProtocolVersion::Version3 } }
             .connect(&addr, &handle)
-            .and_then(|client| client.call(request::Message::Options));
+            .and_then(|client| {
+                // TODO: make client handle creation more ergonomic
+                // map(EasyClientHandle::into) didn't work
+                let client: EasyClientHandle = client.into();
+                client.call(request::Message::Options)
+            });
         core.run(client)
             .chain_err(|| format!("Failed to connect to {}:{}", host, port))
             .map(|_response| {
