@@ -1,7 +1,13 @@
 //! Code shared by streaming and simple protocol versions
+use super::simple;
+
 use tokio_core::io::EasyBuf;
 use codec::header::{OpCode, ProtocolVersion};
 use codec::response::{self, CqlDecode};
+use tokio_core::io::{Io, Framed, Codec};
+use tokio_proto::multiplex::RequestId;
+use futures::{Sink, Stream, Future};
+use codec::request;
 use std::io;
 
 pub fn decode_complete_message_by_opcode(version: ProtocolVersion,
@@ -24,25 +30,34 @@ pub fn io_err<S>(msg: S) -> io::Error
     io::Error::new(io::ErrorKind::Other, msg)
 }
 
-use tokio_core::io::{Io, Framed, Codec};
-use tokio_proto::multiplex::RequestId;
-use futures::{Sink, Stream, Future};
-use super::simple::Response;
-use codec::request;
+pub struct SimpleResponse(RequestId, simple::Response);
+
+impl From<(RequestId, simple::Response)> for SimpleResponse {
+    fn from((id, res): (RequestId, simple::Response)) -> Self {
+        SimpleResponse(id, res)
+    }
+}
+
+pub struct SimpleRequest(RequestId, request::Message);
+impl From<SimpleRequest> for (RequestId, request::Message) {
+    fn from(SimpleRequest(id, res): SimpleRequest) -> Self {
+        (id, res)
+    }
+}
 
 pub fn perform_handshake<T, C>(transport: Framed<T, C>)
                                -> Box<Future<Item = Framed<T, C>, Error = io::Error>>
     where T: Io + 'static,
           C: Codec + 'static,
-          (RequestId, Response): From<C::In>,
-          C::Out: From<(RequestId, request::Message)>
+          SimpleResponse: From<C::In>,
+          C::Out: From<SimpleRequest>
 {
-    Box::new(transport.send((0, request::Message::Options).into())
+    Box::new(transport.send(SimpleRequest(0, request::Message::Options).into())
         .and_then(|transport| transport.into_future().map_err(|(e, _)| e))
         .and_then(|(res, transport)| {
             res.ok_or_else(|| io_err("No reply received upon 'OPTIONS' message"))
                 .and_then(|response| {
-                    let (_id, res) = response.into();
+                    let SimpleResponse(_id, res) = response.into();
                     match res.message {
                         response::Message::Supported(msg) => {
                             let startup = request::StartupMessage {
@@ -63,7 +78,7 @@ pub fn perform_handshake<T, C>(transport: Framed<T, C>)
                 })
         })
         .and_then(|(transport, startup)| {
-            Box::new(transport.send((0, request::Message::Startup(startup)).into())
+            Box::new(transport.send(SimpleRequest(0, request::Message::Startup(startup)).into())
                 .and_then(|transport| transport.into_future().map_err(|(e, _)| e))
                 .and_then(|(res, transport)| {
                     res.ok_or_else(|| io_err("No reply received upon 'STARTUP' message"))
