@@ -1,2 +1,2 @@
-pub mod blocking;
+pub mod simple;
 pub mod streaming;
