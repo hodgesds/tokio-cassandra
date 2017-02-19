@@ -1,17 +1,18 @@
-use codec::request;
+use codec::request::{self, cql_encode};
 use codec::response;
-use codec::header::ProtocolVersion;
+use codec::header::{Header, ProtocolVersion, Direction};
 use tokio_service::Service;
 use futures::Future;
 use tokio_core::reactor::Handle;
 use tokio_proto::util::client_proxy::ClientProxy;
 use tokio_proto::streaming::{Message, Body};
-use tokio_proto::streaming::multiplex::{ClientProto, Frame};
+use tokio_proto::streaming::multiplex::{RequestId, ClientProto, Frame};
 use tokio_proto::TcpClient;
 use tokio_core::io::{EasyBuf, Codec, Io, Framed};
-use std::io;
+use std::{io, mem};
 use std::net::SocketAddr;
-use super::shared::{SimpleRequest, SimpleResponse, perform_handshake};
+use super::shared::{io_err, decode_complete_message_by_opcode, SimpleRequest, SimpleResponse,
+                    perform_handshake};
 use super::simple;
 
 /// A chunk of a result - similar to response::ResultMessage, but only a chunk of it
@@ -52,7 +53,20 @@ impl From<StreamingMessage> for response::Message {
         match f {
             Ready => response::Message::Ready,
             Supported(msg) => response::Message::Supported(msg),
-            Partial(_) => panic!("Partials are not suppported - this is just during handshake"),
+            Partial(_) => {
+                panic!("Partials are not suppported - this is just used during handshake")
+            }
+        }
+    }
+}
+
+impl From<response::Message> for Response {
+    fn from(f: response::Message) -> Self {
+        Response {
+            message: match f {
+                response::Message::Ready => StreamingMessage::Ready,
+                response::Message::Supported(msg) => StreamingMessage::Supported(msg),
+            },
         }
     }
 }
@@ -66,13 +80,22 @@ type RequestStream = Body<request::Message, io::Error>;
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct CqlCodec {
+    state: Machine,
     flags: u8,
     version: ProtocolVersion,
+}
+
+
+#[derive(PartialEq, Debug, Clone)]
+enum Machine {
+    NeedHeader,
+    WithHeader { header: Header, body_len: usize },
 }
 
 impl CqlCodec {
     fn new(v: ProtocolVersion) -> Self {
         CqlCodec {
+            state: Machine::NeedHeader,
             flags: 0,
             version: v,
         }
@@ -93,15 +116,68 @@ impl From<SimpleRequest> for CodecOutputFrame {
     }
 }
 
-
 impl Codec for CqlCodec {
     type In = CodecInputFrame;
     type Out = CodecOutputFrame;
-    fn decode(&mut self, _buf: &mut EasyBuf) -> Result<Option<Self::In>, io::Error> {
-        unimplemented!()
+    fn decode(&mut self, buf: &mut EasyBuf) -> Result<Option<Self::In>, io::Error> {
+        use self::Machine::*;
+        match self.state {
+            NeedHeader => {
+                if buf.len() < Header::encoded_len() {
+                    return Ok(None);
+                }
+                let h = Header::try_from(buf.drain_to(Header::encoded_len())
+                        .as_slice()).map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
+                assert!(h.version.direction == Direction::Response,
+                        "As a client protocol, I can only handle response decoding");
+                let len = h.length;
+                self.state = WithHeader {
+                    header: h,
+                    body_len: len as usize,
+                };
+
+                return self.decode(buf);
+            }
+            WithHeader { body_len, .. } => {
+                if body_len as usize > buf.len() {
+                    return Ok(None);
+                }
+                let h = match mem::replace(&mut self.state, NeedHeader) {
+                    WithHeader { header, .. } => header,
+                    _ => unreachable!(),
+                };
+                /* TODO: implement version mismatch test */
+                let code = h.op_code.clone();
+                let version = h.version.version;
+                Ok(Some(Frame::Message {
+                    id: h.stream_id as RequestId,
+                    /* TODO: verify amount of consumed bytes equals the ones actually parsed */
+                    message: decode_complete_message_by_opcode(version,
+                                                               code,
+                                                               buf.drain_to(body_len))
+                        .map_err(|err| io_err(err))?
+                        .into(),
+                    body: false,
+                    solo: true,
+                }))
+            }
+        }
     }
-    fn encode(&mut self, _msg: Self::Out, _buf: &mut Vec<u8>) -> io::Result<()> {
-        unimplemented!()
+
+    fn encode(&mut self, msg: Self::Out, buf: &mut Vec<u8>) -> io::Result<()> {
+        match msg {
+            Frame::Message { id, message, .. } => {
+                cql_encode(self.version,
+                           self.flags,
+                           id as u16, /* FIXME safe cast */
+                           message,
+                           buf)
+                    .map_err(|err| io::Error::new(io::ErrorKind::Other, err))
+            }
+            Frame::Error { error, .. } => Err(error),
+            Frame::Body { .. } => panic!("Streaming of Requests is not currently supported"),
+        }
+
     }
 }
 
