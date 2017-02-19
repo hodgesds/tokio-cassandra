@@ -35,7 +35,6 @@ impl CqlCodec {
 
 #[derive(Debug)]
 pub struct Response {
-    pub header: Header,
     pub message: response::Message,
 }
 
@@ -75,7 +74,6 @@ impl Codec for CqlCodec {
                 let version = h.version.version;
                 Ok(Some((h.stream_id as RequestId,
                          Response {
-                             header: h,
                              /* TODO: verify amount of consumed bytes equals the
                                                ones actually parsed */
                              message: decode_complete_message_by_opcode(version, code,

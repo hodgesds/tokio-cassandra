@@ -1,6 +1,5 @@
 use codec::request;
-use codec::response;
-use codec::header::{Header, ProtocolVersion};
+use codec::header::ProtocolVersion;
 use tokio_service::Service;
 use futures::Future;
 use tokio_core::reactor::Handle;
@@ -21,33 +20,10 @@ pub enum Response {
     Stream(ResponseStream),
 }
 
-/// A dummy to show how streaming would work, when implemented
-#[derive(Debug)]
-pub struct PartialResultMessage;
-
-/// Streamable responses use the body type, which implements stream, with the streamable response.
-/// In our case, this will only be the Result response
-/// TODO: fix comment above once things get clearer
-#[derive(Debug)]
-pub enum StreamingMessage {
-    Supported(response::SupportedMessage),
-    Result(StreamingResponseStream),
-    Ready,
-}
-
-#[derive(Debug)]
-pub struct StreamingResponse {
-    pub header: Header,
-    pub message: StreamingMessage,
-}
-
-type StreamingResponseStream = Body<PartialResultMessage, io::Error>;
-
 /// Represents a response that arrives in one or more chunks.
 type ResponseStream = Body<simple::Response, io::Error>;
 type RequestStream = Body<request::Message, io::Error>;
 
-type StreamingResponseMessage = Message<StreamingResponse, StreamingResponseStream>;
 type ResponseMessage = Message<simple::Response, ResponseStream>;
 type RequestMessage = Message<request::Message, RequestStream>;
 
@@ -132,11 +108,6 @@ impl From<SimpleRequest> for CodecOutputFrame {
 pub struct ClientHandle {
     inner: ClientProxy<RequestMessage, ResponseMessage, io::Error>,
 }
-
-pub struct StreamingClientHandle {
-    inner: ClientProxy<RequestMessage, StreamingResponseMessage, io::Error>,
-}
-
 
 impl From<request::Message> for RequestMessage {
     fn from(msg: request::Message) -> Self {
