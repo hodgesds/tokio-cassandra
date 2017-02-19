@@ -26,7 +26,7 @@ mod scmds {
     use clap;
     use super::errors::*;
     use futures::Future;
-    use tokio_cassandra::{CqlProto, Client};
+    use tokio_cassandra::blocking::{CqlProto, Client};
     use tokio_cassandra::codec::request;
     use tokio_cassandra::codec::header::ProtocolVersion;
     use tokio_core::reactor::Core;
