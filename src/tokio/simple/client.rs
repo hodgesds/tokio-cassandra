@@ -23,7 +23,7 @@ impl Client {
                    -> Box<Future<Item = ClientHandle, Error = io::Error>> {
         let ret = TcpClient::new(self.protocol)
             .connect(addr, handle)
-            .map(|_client_service| ClientHandle { inner: _client_service });
+            .map(|client_service| ClientHandle { inner: client_service });
         Box::new(ret)
     }
 }

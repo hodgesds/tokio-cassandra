@@ -1,5 +1,5 @@
 use codec::request::{self, cql_encode};
-use codec::header::ProtocolVersion;
+use codec::header::{Direction, ProtocolVersion};
 use codec::header::{OpCode, Header};
 use codec::response::{self, Result, CqlDecode};
 
@@ -63,6 +63,8 @@ impl Codec for CqlCodec {
                 }
                 let h = Header::try_from(buf.drain_to(Header::encoded_len())
                         .as_slice()).map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
+                assert!(h.version.direction == Direction::Response,
+                        "As a client protocol, I can only handle response decoding");
                 let len = h.length;
                 self.state = WithHeader {
                     header: h,
