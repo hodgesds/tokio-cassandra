@@ -14,9 +14,16 @@ use std::net::SocketAddr;
 use super::shared::{SimpleRequest, SimpleResponse, perform_handshake};
 use super::simple;
 
-/// A dummy to show how streaming would work, when implemented
+/// A chunk of a result - similar to response::ResultMessage, but only a chunk of it
+/// TODO: this is just a dummy to show the intent - this is likely to change
 #[derive(Debug)]
-pub struct PartialResultMessage;
+pub struct ResultChunk;
+
+/// A message representing a partial response
+#[derive(Debug)]
+pub enum ChunkedMessage {
+    Result(ResultChunk),
+}
 
 /// Streamable responses use the body type, which implements stream, with the streamable response.
 /// In our case, this will only be the Result response
@@ -24,7 +31,7 @@ pub struct PartialResultMessage;
 #[derive(Debug)]
 pub enum StreamingMessage {
     Supported(response::SupportedMessage),
-    Result(ResponseStream),
+    Partial(ResponseStream),
     Ready,
 }
 
@@ -45,12 +52,12 @@ impl From<StreamingMessage> for response::Message {
         match f {
             Ready => response::Message::Ready,
             Supported(msg) => response::Message::Supported(msg),
-            Result(_) => panic!("streamable messages are not supported"),
+            Partial(_) => panic!("Partials are not suppported - this is just during handshake"),
         }
     }
 }
 
-type ResponseStream = Body<PartialResultMessage, io::Error>;
+type ResponseStream = Body<ChunkedMessage, io::Error>;
 type ResponseMessage = Message<Response, ResponseStream>;
 
 type RequestMessage = Message<request::Message, RequestStream>;
@@ -72,7 +79,7 @@ impl CqlCodec {
     }
 }
 
-type CodecInputFrame = Frame<Response, PartialResultMessage, io::Error>;
+type CodecInputFrame = Frame<Response, ChunkedMessage, io::Error>;
 type CodecOutputFrame = Frame<request::Message, request::Message, io::Error>;
 
 impl From<SimpleRequest> for CodecOutputFrame {
@@ -107,7 +114,7 @@ impl<T: Io + 'static> ClientProto<T> for CqlProto {
     type Request = request::Message;
     type RequestBody = request::Message;
     type Response = Response;
-    type ResponseBody = PartialResultMessage;
+    type ResponseBody = ChunkedMessage;
     type Error = io::Error;
 
     /// `Framed<T, LineCodec>` is the return value of `io.framed(LineCodec)`
@@ -151,7 +158,7 @@ impl From<ResponseMessage> for Response {
         match msg {
             Message::WithoutBody(res) => res,
             Message::WithBody(_head, bodystream) => {
-                Response { message: StreamingMessage::Result(bodystream) }
+                Response { message: StreamingMessage::Partial(bodystream) }
             }
         }
     }
