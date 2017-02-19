@@ -1,14 +1,12 @@
 use codec::request;
 use codec::header::ProtocolVersion;
 use tokio_service::Service;
-use futures::{Stream, Future};
+use futures::Future;
 use tokio_core::reactor::Handle;
 use tokio_proto::util::client_proxy::ClientProxy;
-use tokio_proto::multiplex;
 use tokio_proto::streaming::{Message, Body};
 use tokio_proto::streaming::multiplex::{ClientProto, Frame};
 use tokio_proto::TcpClient;
-use tokio_core::net::TcpStream;
 use tokio_core::io::{EasyBuf, Codec, Io, Framed};
 use std::io;
 use std::net::SocketAddr;
@@ -50,7 +48,7 @@ impl Codec for CqlCodec {
     fn decode(&mut self, _buf: &mut EasyBuf) -> Result<Option<Self::In>, io::Error> {
         unimplemented!()
     }
-    fn encode(&mut self, _msg: Self::Out, buf: &mut Vec<u8>) -> io::Result<()> {
+    fn encode(&mut self, _msg: Self::Out, _buf: &mut Vec<u8>) -> io::Result<()> {
         unimplemented!()
     }
 }

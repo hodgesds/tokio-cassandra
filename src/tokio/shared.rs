@@ -27,11 +27,11 @@ pub fn io_err<S>(msg: S) -> io::Error
 use tokio_core::io::{Io, Framed, Codec};
 use tokio_proto::multiplex::RequestId;
 use futures::{Sink, Stream, Future};
-use super::simple::{Response, CqlCodec};
+use super::simple::Response;
 use codec::request;
 
-fn perform_handshake<T, C>(transport: Framed<T, C>)
-                           -> Box<Future<Item = Framed<T, C>, Error = io::Error>>
+pub fn perform_handshake<T, C>(transport: Framed<T, C>)
+                               -> Box<Future<Item = Framed<T, C>, Error = io::Error>>
     where T: Io + 'static,
           C: Codec + 'static,
           (RequestId, Response): From<C::In>,
