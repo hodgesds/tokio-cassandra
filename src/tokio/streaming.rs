@@ -1,4 +1,5 @@
 use codec::request;
+use codec::response;
 use codec::header::ProtocolVersion;
 use tokio_service::Service;
 use futures::Future;
@@ -13,19 +14,47 @@ use std::net::SocketAddr;
 use super::shared::{SimpleRequest, SimpleResponse, perform_handshake};
 use super::simple;
 
-/// The response type of the streaming protocol
+/// A dummy to show how streaming would work, when implemented
 #[derive(Debug)]
-pub enum Response {
-    Once(simple::Response),
-    Stream(ResponseStream),
+pub struct PartialResultMessage;
+
+/// Streamable responses use the body type, which implements stream, with the streamable response.
+/// In our case, this will only be the Result response
+/// TODO: fix comment above once things get clearer
+#[derive(Debug)]
+pub enum StreamingMessage {
+    Supported(response::SupportedMessage),
+    Result(ResponseStream),
+    Ready,
 }
 
-/// Represents a response that arrives in one or more chunks.
-type ResponseStream = Body<simple::Response, io::Error>;
-pub type RequestStream = Body<request::Message, io::Error>;
+#[derive(Debug)]
+pub struct Response {
+    pub message: StreamingMessage,
+}
 
-type ResponseMessage = Message<simple::Response, ResponseStream>;
-pub type RequestMessage = Message<request::Message, RequestStream>;
+impl From<Response> for simple::Response {
+    fn from(f: Response) -> Self {
+        simple::Response { message: f.message.into() }
+    }
+}
+
+impl From<StreamingMessage> for response::Message {
+    fn from(f: StreamingMessage) -> Self {
+        use self::StreamingMessage::*;
+        match f {
+            Ready => response::Message::Ready,
+            Supported(msg) => response::Message::Supported(msg),
+            Result(_) => panic!("streamable messages are not supported"),
+        }
+    }
+}
+
+type ResponseStream = Body<PartialResultMessage, io::Error>;
+type ResponseMessage = Message<Response, ResponseStream>;
+
+type RequestMessage = Message<request::Message, RequestStream>;
+type RequestStream = Body<request::Message, io::Error>;
 
 
 #[derive(PartialEq, Debug, Clone)]
@@ -43,8 +72,20 @@ impl CqlCodec {
     }
 }
 
-type CodecInputFrame = Frame<simple::Response, simple::Response, io::Error>;
-pub type CodecOutputFrame = Frame<request::Message, request::Message, io::Error>;
+type CodecInputFrame = Frame<Response, PartialResultMessage, io::Error>;
+type CodecOutputFrame = Frame<request::Message, request::Message, io::Error>;
+
+impl From<SimpleRequest> for CodecOutputFrame {
+    fn from(SimpleRequest(id, msg): SimpleRequest) -> Self {
+        Frame::Message {
+            id: id,
+            message: msg,
+            body: false,
+            solo: true,
+        }
+    }
+}
+
 
 impl Codec for CqlCodec {
     type In = CodecInputFrame;
@@ -65,8 +106,8 @@ pub struct CqlProto {
 impl<T: Io + 'static> ClientProto<T> for CqlProto {
     type Request = request::Message;
     type RequestBody = request::Message;
-    type Response = simple::Response;
-    type ResponseBody = simple::Response;
+    type Response = Response;
+    type ResponseBody = PartialResultMessage;
     type Error = io::Error;
 
     /// `Framed<T, LineCodec>` is the return value of `io.framed(LineCodec)`
@@ -82,7 +123,7 @@ impl<T: Io + 'static> ClientProto<T> for CqlProto {
 impl From<CodecInputFrame> for SimpleResponse {
     fn from(f: CodecInputFrame) -> Self {
         match f {
-            Frame::Message { id, message, .. } => SimpleResponse(id, message),
+            Frame::Message { id, message, .. } => SimpleResponse(id, message.into()),
             Frame::Error { .. } => {
                 // TODO: handle frame errors, or assure they can't happen
                 panic!("Cannot handle frame errors right now!")
@@ -94,16 +135,6 @@ impl From<CodecInputFrame> for SimpleResponse {
     }
 }
 
-impl From<SimpleRequest> for CodecOutputFrame {
-    fn from(SimpleRequest(id, msg): SimpleRequest) -> Self {
-        Frame::Message {
-            id: id,
-            message: msg,
-            body: false,
-            solo: true,
-        }
-    }
-}
 
 pub struct ClientHandle {
     inner: ClientProxy<RequestMessage, ResponseMessage, io::Error>,
@@ -118,8 +149,10 @@ impl From<request::Message> for RequestMessage {
 impl From<ResponseMessage> for Response {
     fn from(msg: ResponseMessage) -> Self {
         match msg {
-            Message::WithoutBody(msg) => Response::Once(msg),
-            Message::WithBody(_head, body) => Response::Stream(body),
+            Message::WithoutBody(res) => res,
+            Message::WithBody(_head, bodystream) => {
+                Response { message: StreamingMessage::Result(bodystream) }
+            }
         }
     }
 }
