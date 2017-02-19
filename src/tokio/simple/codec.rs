@@ -7,6 +7,7 @@ use futures::{Future, Sink, Stream};
 use tokio_proto::multiplex::{self, RequestId};
 use tokio_core::io::{EasyBuf, Codec, Io, Framed};
 use std::io;
+use super::super::shared::decode_complete_message_by_opcode;
 
 #[derive(PartialEq, Debug, Clone)]
 enum Machine {
@@ -35,20 +36,6 @@ impl CqlCodec {
 pub struct Response {
     pub header: Header,
     pub message: response::Message,
-}
-
-fn match_message(version: ProtocolVersion,
-                 code: OpCode,
-                 buf: EasyBuf)
-                 -> Result<response::Message> {
-    use codec::header::OpCode::*;
-    Ok(match code {
-        Supported => {
-            response::Message::Supported(response::SupportedMessage::decode(version, buf)?)
-        }
-        Ready => response::Message::Ready,
-        _ => unimplemented!(),
-    })
 }
 
 impl Codec for CqlCodec {
@@ -90,7 +77,7 @@ impl Codec for CqlCodec {
                              header: h,
                              /* TODO: verify amount of consumed bytes equals the
                                                ones actually parsed */
-                             message: match_message(version, code,
+                             message: decode_complete_message_by_opcode(version, code,
                                                     buf.drain_to(body_len))
                                  .map_err(|err| io_err(err))?,
                          })))
