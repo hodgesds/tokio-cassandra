@@ -7,7 +7,7 @@ use futures::{Future, Sink, Stream};
 use tokio_proto::multiplex::{self, RequestId};
 use tokio_core::io::{EasyBuf, Codec, Io, Framed};
 use std::io;
-use super::super::shared::decode_complete_message_by_opcode;
+use super::super::shared::{io_err, decode_complete_message_by_opcode};
 
 #[derive(PartialEq, Debug, Clone)]
 enum Machine {
@@ -18,7 +18,7 @@ enum Machine {
 #[derive(PartialEq, Debug, Clone)]
 pub struct CqlCodec {
     state: Machine,
-    pub flags: u8,
+    flags: u8,
     version: ProtocolVersion,
 }
 
@@ -112,12 +112,6 @@ impl<T: Io + 'static> multiplex::ClientProto<T> for CqlProto {
         let transport = io.framed(CqlCodec::new(self.version));
         perform_handshake(transport)
     }
-}
-
-fn io_err<S>(msg: S) -> io::Error
-    where S: Into<Box<::std::error::Error + Send + Sync>>
-{
-    io::Error::new(io::ErrorKind::Other, msg)
 }
 
 fn perform_handshake<T>(transport: Framed<T, CqlCodec>)
