@@ -97,7 +97,7 @@ impl From<SimpleRequest> for CodecOutputFrame {
             id: id,
             message: msg,
             body: false,
-            solo: true,
+            solo: false,
         }
     }
 }
