@@ -172,7 +172,11 @@ impl<T: Io + 'static> ClientProto<T> for CqlProto {
 
     fn bind_transport(&self, io: T) -> Self::BindTransport {
         let transport = io.framed(CqlCodec::new(self.version));
-        perform_handshake(transport)
+        let handshake = transport.send(SimpleRequest(0, request::Message::Options).into())
+            .and_then(|transport| transport.into_future().map_err(|(e, _)| e))
+            .and_then(|(res, transport)| interpret_response_to_option(transport, res))
+            .and_then(|(transport, startup)| send_startup(transport, startup));
+        Box::new(handshake)
     }
 }
 
@@ -252,47 +256,51 @@ impl From<SimpleRequest> for CodecOutputFrame {
 pub struct SimpleResponse(pub RequestId, pub response::Message);
 pub struct SimpleRequest(pub RequestId, pub request::Message);
 
-pub fn perform_handshake<T, C>(transport: Framed<T, C>)
-                               -> Box<Future<Item = Framed<T, C>, Error = io::Error>>
-    where T: Io + 'static,
-          C: Codec + 'static,
-          SimpleResponse: From<C::In>,
-          C::Out: From<SimpleRequest>
+fn interpret_response_to_option<T>(transport: Framed<T, CqlCodec>,
+                                   res: Option<CodecInputFrame>)
+                                   -> io::Result<(Framed<T, CqlCodec>, request::StartupMessage)>
+    where T: Io + 'static
 {
-    Box::new(transport.send(SimpleRequest(0, request::Message::Options).into())
+    res.ok_or_else(|| io_err("No reply received upon 'OPTIONS' message"))
+        .and_then(|response| {
+            let SimpleResponse(_id, res) = response.into();
+            match res {
+                response::Message::Supported(msg) => {
+                    let startup = request::StartupMessage {
+                        cql_version: msg.latest_cql_version()
+                            .ok_or(io_err("Expected CQL_VERSION to contain at least one version"))?
+                            .clone(),
+                        compression: None,
+                    };
+                    Ok((transport, startup))
+                }
+                msg => {
+                    Err(io_err(format!("Expected to receive 'SUPPORTED' message but got {:?}",
+                                       msg)))
+                }
+            }
+        })
+}
+
+fn send_startup<T>(transport: Framed<T, CqlCodec>,
+                   startup: request::StartupMessage)
+                   -> Box<Future<Error = io::Error, Item = Framed<T, CqlCodec>> + 'static>
+    where T: Io + 'static
+{
+    Box::new(transport.send(SimpleRequest(0, request::Message::Startup(startup)).into())
         .and_then(|transport| transport.into_future().map_err(|(e, _)| e))
         .and_then(|(res, transport)| {
-            res.ok_or_else(|| io_err("No reply received upon 'OPTIONS' message"))
+            res.ok_or_else(|| io_err("No reply received upon 'STARTUP' message"))
                 .and_then(|response| {
                     let SimpleResponse(_id, res) = response.into();
                     match res {
-                        response::Message::Supported(msg) => {
-                            let startup = request::StartupMessage {
-                                cql_version: msg.latest_cql_version()
-                                    .ok_or(io_err("Expected CQL_VERSION to contain at least one \
-                                                   version"))?
-                                    .clone(),
-                                compression: None,
-                            };
-                            Ok((transport, startup))
-                        }
-                        msg => {
-                            Err(io_err(format!("Expected to receive 'SUPPORTED' message but got \
-                                                {:?}",
-                                               msg)))
+                        response::Message::Ready => Ok(transport),
+                        other => {
+                            Err(io_err(format!("unexpected response, need READY or \
+                                                AUTHENTICATE, got {:?}",
+                                               other)))
                         }
                     }
                 })
-        })
-        .and_then(|(transport, startup)| {
-            Box::new(transport.send(SimpleRequest(0, request::Message::Startup(startup)).into())
-                .and_then(|transport| transport.into_future().map_err(|(e, _)| e))
-                .and_then(|(res, transport)| {
-                    res.ok_or_else(|| io_err("No reply received upon 'STARTUP' message"))
-                        .map(|_response| {
-                            // TODO: verify we actually got a startup response!
-                            transport
-                        })
-                }))
         }))
 }
