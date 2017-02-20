@@ -77,8 +77,10 @@ pub fn long_string(buf: EasyBuf) -> ParseResult<CqlLongString<EasyBuf>> {
 
 pub fn bytes(buf: EasyBuf) -> ParseResult<CqlBytes<EasyBuf>> {
     let (mut buf, len) = int(buf)?;
-    if buf.len() < len as usize {
+    if (buf.len() as isize) < len as isize {
         return Err(Incomplete(Size(len as usize)));
+    } else if len < 0 {
+        return Ok((buf, CqlBytes::null_value()));
     }
     let b = CqlBytes::from(buf.drain_to(len as usize));
     Ok((buf, b))

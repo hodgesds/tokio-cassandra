@@ -6,7 +6,7 @@ use tokio_core::io::EasyBuf;
 pub struct CqlBytes<T>
     where T: AsRef<[u8]>
 {
-    buf: T,
+    buf: Option<T>,
 }
 
 impl<T> Debug for CqlBytes<T>
@@ -19,13 +19,13 @@ impl<T> Debug for CqlBytes<T>
 
 impl CqlBytes<::tokio_core::io::EasyBuf> {
     pub fn from(buf: ::tokio_core::io::EasyBuf) -> CqlBytes<::tokio_core::io::EasyBuf> {
-        CqlBytes { buf: buf }
+        CqlBytes { buf: Some(buf) }
     }
 }
 
 impl<'a> CqlFrom<CqlBytes<EasyBuf>, Vec<u8>> for CqlBytes<EasyBuf> {
     unsafe fn unchecked_from(vec: Vec<u8>) -> CqlBytes<EasyBuf> {
-        CqlBytes { buf: vec.into() }
+        CqlBytes { buf: Some(vec.into()) }
     }
 
     fn max_len() -> usize {
@@ -35,7 +35,7 @@ impl<'a> CqlFrom<CqlBytes<EasyBuf>, Vec<u8>> for CqlBytes<EasyBuf> {
 
 impl<'a> CqlFrom<CqlBytes<Vec<u8>>, Vec<u8>> for CqlBytes<Vec<u8>> {
     unsafe fn unchecked_from(vec: Vec<u8>) -> CqlBytes<Vec<u8>> {
-        CqlBytes { buf: vec }
+        CqlBytes { buf: Some(vec) }
     }
 
     fn max_len() -> usize {
@@ -47,11 +47,21 @@ impl<T> CqlBytes<T>
     where T: AsRef<[u8]>
 {
     pub fn len(&self) -> i32 {
-        self.buf.as_ref().len() as i32
+        match &self.buf {
+            &Some(ref buf) => buf.as_ref().len() as i32,
+            &None => -1,
+        }
     }
 
-    pub fn as_bytes(&self) -> &[u8] {
-        self.buf.as_ref()
+    pub fn as_bytes(&self) -> Option<&[u8]> {
+        match &self.buf {
+            &Some(ref buf) => Some(buf.as_ref()),
+            &None => None,
+        }
+    }
+
+    pub fn null_value() -> CqlBytes<T> {
+        CqlBytes { buf: None }
     }
 }
 
@@ -63,6 +73,17 @@ mod test {
     #[test]
     fn bytes() {
         let s = CqlBytes::try_from((0u8..10).collect::<Vec<_>>().into()).unwrap();
+        let mut buf = Vec::new();
+        encode::bytes(&s, &mut buf);
+
+        let buf = Vec::from(&buf[..]).into();
+        let res = decode::bytes(buf);
+        assert_eq!(res.unwrap().1, s);
+    }
+
+    #[test]
+    fn null_value() {
+        let s = CqlBytes::null_value();
         let mut buf = Vec::new();
         encode::bytes(&s, &mut buf);
 

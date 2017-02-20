@@ -37,7 +37,9 @@ pub fn bytes<T>(b: &CqlBytes<T>, buf: &mut Vec<u8>)
     where T: AsRef<[u8]> + PartialEq + Eq
 {
     buf.extend(&int(b.len())[..]);
-    buf.extend(b.as_bytes());
+    if let Some(b) = b.as_bytes() {
+        buf.extend(b);
+    }
 }
 
 pub fn string_list<T>(l: &CqlStringList<T>, buf: &mut Vec<u8>)
