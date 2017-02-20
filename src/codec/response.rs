@@ -134,4 +134,15 @@ mod test {
 
         assert_eq!(res.authenticator, authenticator);
     }
+
+    #[test]
+    fn decode_auth_challenge_message() {
+        let msg = include_bytes!("../../tests/fixtures/v3/responses/auth_challenge.msg");
+        let buf = Vec::from(skip_header(&msg[..])).into();
+        let res = AuthChallangeMessage::decode(Version3, buf).unwrap();
+
+        let authenticator = CqlString::try_from("").unwrap();
+
+        assert_eq!(res.authenticator, authenticator);
+    }
 }

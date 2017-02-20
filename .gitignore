@@ -1,8 +1,10 @@
 .DS_Store
 *.rs.bk
+.*.ok
 target/
 Cargo.lock
 .idea/
 .vscode/
+.docker-cassandra/
 tests/fixtures/index-bare/
 tests/fixtures/index/

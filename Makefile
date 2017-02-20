@@ -1,4 +1,6 @@
 CLI_EXECUTABLE=target/debug/tcc
+DB_IMAGE_OK=.db-image.ok
+DB_IMAGE_NAME=our/cassandra
 
 help:
 	$(info Available Targets)
@@ -8,6 +10,7 @@ help:
 	$(info integration-tests    | Run tests that use a cassandra node)
 	$(info debug-cli-tests      | Run the cli with certain arguments to help debugging - needs debug-docker-db)
 	$(info debug-docker-db      | Bring up a cassandra database for local usage on 9042)
+	$(info db-image             | build our custom image for cassandra, supporting the features we need)
 
 toc:
 	doctoc --github --title "A Cassandra Native Protocol 3 implementation using Tokio for IO." README.md
@@ -19,13 +22,21 @@ unit-tests:
 $(CLI_EXECUTABLE):
 	cd cli && cargo build
 
-integration-tests: $(CLI_EXECUTABLE)
-	bin/integration-test.sh $(CLI_EXECUTABLE)
+integration-tests: $(CLI_EXECUTABLE) $(DB_IMAGE_OK)
+	bin/integration-test.sh $(CLI_EXECUTABLE) $(DB_IMAGE_NAME)
 
-debug-docker-db: $(CLI_EXECUTABLE)
-	. lib/utilities.sh && start_dependencies 9042 "$(CLI_EXECUTABLE) test-connection"
+debug-docker-db: $(CLI_EXECUTABLE) $(DB_IMAGE_OK)
+	. lib/utilities.sh && start_dependencies $(DB_IMAGE_NAME) 9042 "$(CLI_EXECUTABLE) test-connection"
 
 debug-cli-tests:
 	cd cli && cargo run -- test-connection 127.0.0.1 9042
 
+.docker-cassandra:
+	git clone https://github.com/pitrho/docker-cassandra $@
+
+$(DB_IMAGE_OK): .docker-cassandra
+	bin/build-dockerfile.sh $< $(DB_IMAGE_NAME)
+	@touch $(DB_IMAGE_OK)
+
+db-image: $(DB_IMAGE_OK)
 
