@@ -8,6 +8,9 @@ pub use self::cql_string::*;
 mod cql_long_string;
 pub use self::cql_long_string::*;
 
+mod cql_bytes;
+pub use self::cql_bytes::*;
+
 mod collections;
 pub use self::collections::*;
 

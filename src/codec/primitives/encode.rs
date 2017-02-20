@@ -1,5 +1,5 @@
 use byteorder::{ByteOrder, BigEndian};
-use super::{CqlStringList, CqlLongString, CqlString, CqlStringMap, CqlStringMultiMap};
+use super::{CqlStringList, CqlLongString, CqlString, CqlBytes, CqlStringMap, CqlStringMultiMap};
 
 pub fn short(v: u16) -> [u8; 2] {
     let mut bytes = [0u8; 2];
@@ -31,6 +31,13 @@ pub fn long_string<T>(s: &CqlLongString<T>, buf: &mut Vec<u8>)
 {
     buf.extend(&int(s.len())[..]);
     buf.extend(s.as_bytes());
+}
+
+pub fn bytes<T>(b: &CqlBytes<T>, buf: &mut Vec<u8>)
+    where T: AsRef<[u8]> + PartialEq + Eq
+{
+    buf.extend(&int(b.len())[..]);
+    buf.extend(b.as_bytes());
 }
 
 pub fn string_list<T>(l: &CqlStringList<T>, buf: &mut Vec<u8>)
