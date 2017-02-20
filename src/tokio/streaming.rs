@@ -144,7 +144,7 @@ impl Codec for CqlCodec {
                         .map_err(|err| io_err(err))?
                         .into(),
                     body: false,
-                    solo: true,
+                    solo: false,
                 }))
             }
         }
@@ -163,7 +163,6 @@ impl Codec for CqlCodec {
             Frame::Error { error, .. } => Err(error),
             Frame::Body { .. } => panic!("Streaming of Requests is not currently supported"),
         }
-
     }
 }
 
