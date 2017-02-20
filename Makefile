@@ -1,6 +1,6 @@
 CLI_EXECUTABLE=target/debug/tcc
 DB_IMAGE_OK=.db-image.ok
-DB_IMAGE_NAME=our/cassandra
+DB_IMAGE_NAME=our/cassandra:latest
 
 help:
 	$(info Available Targets)
@@ -31,11 +31,8 @@ debug-docker-db: $(CLI_EXECUTABLE) $(DB_IMAGE_OK)
 debug-cli-tests:
 	cd cli && cargo run -- test-connection 127.0.0.1 9042
 
-.docker-cassandra:
-	git clone https://github.com/pitrho/docker-cassandra $@
-
-$(DB_IMAGE_OK): .docker-cassandra
-	bin/build-dockerfile.sh $< $(DB_IMAGE_NAME)
+$(DB_IMAGE_OK): 
+	bin/build-image.sh etc/docker-cassandra $(DB_IMAGE_NAME)
 	@touch $(DB_IMAGE_OK)
 
 db-image: $(DB_IMAGE_OK)

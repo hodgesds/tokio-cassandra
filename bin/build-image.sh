@@ -7,4 +7,4 @@ image_name=${2:?Second argument must be the image name for the cassandra databas
 mkdir -p "$(dirname "$dockerfile")"
 
 cd "$dc"
-./build.sh -v 2.1 -t "$image_name"
+./build.sh -v 2.1.16 -t "$image_name"
