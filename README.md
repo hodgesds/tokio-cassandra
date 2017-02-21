@@ -2,31 +2,18 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 A Cassandra Native Protocol 3 implementation using Tokio for IO.
 
-- [Usage](#usage)
 - [Goals](#goals)
   - [General](#general)
   - [Minimal Viable Product and v1.0](#minimal-viable-product-and-v10)
 - [Status](#status)
   - [Commandline Interface](#commandline-interface)
   - [Library](#library)
+- [Usage](#usage)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
 [![Build Status linux+osx](https://travis-ci.org/nhellwig/tokio-cassandra.svg?branch=master)](https://travis-ci.org/nhellwig/tokio-cassandra)
 [![crates.io version](https://img.shields.io/crates/v/tokio-cassandra.svg)](https://crates.io/crates/tokio-cassandra)
-
-# Usage
-
-Add this to your Cargo.toml
-```toml
-[dependencies]
-tokio-cassandra = "*"
-```
-
-Add this to your lib ...
-```Rust
-extern crate tokio_cassandra;
-```
 
 # Goals
 ## General
@@ -149,3 +136,17 @@ extern crate tokio_cassandra;
     * [ ] time
     * [ ] tinyint
     * [ ] smallint
+
+# Usage
+
+Add this to your Cargo.toml
+```toml
+[dependencies]
+tokio-cassandra = "*"
+```
+
+Add this to your lib ...
+```Rust
+extern crate tokio_cassandra;
+```
+
