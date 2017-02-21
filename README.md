@@ -44,7 +44,7 @@ extern crate tokio_cassandra;
 * a CLI allows to perform such a query, and output results in JSON format.
 
 # Status
-## Commandline Interface
+## [Commandline Interface](https://github.com/nhellwig/tokio-cassandra/projects/1)
 * **test-connection**
   * [x] unauthenticated
   * [ ] authenticated
@@ -54,7 +54,7 @@ extern crate tokio_cassandra;
   * [ ] host-name resolution
   * [x] use latest-supported cql version
 
-## Library
+## [Library](https://github.com/nhellwig/tokio-cassandra/projects/2)
 * **Architecture and API**
   * [ ] [multi-protocol-version support](https://github.com/nhellwig/tokio-cassandra/issues/4)
 * **Protocol Versions**
