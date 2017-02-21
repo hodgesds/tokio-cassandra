@@ -1,6 +1,7 @@
 CLI_EXECUTABLE=target/debug/tcc
 DB_IMAGE_OK=.db-image.ok
 DB_IMAGE_NAME=our/cassandra:latest
+MAKESHELL=$(shell /usr/bin/env bash)
 
 help:
 	$(info Available Targets)
@@ -26,12 +27,12 @@ integration-tests: $(CLI_EXECUTABLE) $(DB_IMAGE_OK)
 	bin/integration-test.sh $(CLI_EXECUTABLE) $(DB_IMAGE_NAME)
 
 debug-docker-db: $(CLI_EXECUTABLE) $(DB_IMAGE_OK)
-	. lib/utilities.sh && start_dependencies $(DB_IMAGE_NAME) 9042 "$(CLI_EXECUTABLE) test-connection"
+	/usr/bin/env bash -c 'source lib/utilities.sh && start_dependencies $(DB_IMAGE_NAME) 9042 "$(CLI_EXECUTABLE) test-connection"'
 
 debug-cli-tests:
 	cd cli && cargo run -- test-connection 127.0.0.1 9042
 
-$(DB_IMAGE_OK): $(shell find etc/docker-cassandra -type f)
+$(DB_IMAGE_OK): $(shell find etc/docker-cassandra -type f) bin/build-image.sh
 	bin/build-image.sh etc/docker-cassandra $(DB_IMAGE_NAME)
 	@touch $(DB_IMAGE_OK)
 
