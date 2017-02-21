@@ -36,8 +36,11 @@ RUN sed -ri ' \
 EXPOSE 7000 7001 7199 9042 9160
 
 # Add all services files
-RUN mkdir /etc/service/cassandra
+RUN mkdir /etc/service/cassandra /config
 COPY run.sh /etc/service/cassandra/run
+
+COPY secrets/keystore /config/keystore
+COPY secrets/truststore /config/truststore
 
 # Remove the CRON service
 RUN rm -rf /etc/service/cron

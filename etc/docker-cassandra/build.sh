@@ -31,6 +31,7 @@ done
 rm -rf build
 mkdir build
 
+cp -R secrets build/
 cp run.sh build/
 cp cqlshrc build/
 

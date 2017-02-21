@@ -9,9 +9,9 @@ set -e
 : ${CASSANDRA_ENABLE_JMX_SSL:=false}
 : ${CASSANDRA_ENABLE_SSL_DEBUG:=false}
 : ${CASSANDRA_ENABLE_G1GC:=false}
-: ${CASSANDRA_KEYSTORE_PATH:=conf/.keystore}
+: ${CASSANDRA_KEYSTORE_PATH:=/config/keystore}
 : ${CASSANDRA_KEYSTORE_PASSWORD:=cassandra}
-: ${CASSANDRA_TRUSTSTORE_PATH:=conf/.truststore}
+: ${CASSANDRA_TRUSTSTORE_PATH:=/config/truststore}
 : ${CASSANDRA_TRUSTSTORE_PASSWORD:=cassandra}
 : ${CASSANDRA_REQUIRE_CLIENT_AUTH:=false}
 
