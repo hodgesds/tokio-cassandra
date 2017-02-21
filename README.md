@@ -56,14 +56,14 @@ extern crate tokio_cassandra;
 
 ## [Library](https://github.com/nhellwig/tokio-cassandra/projects/2)
 * **Architecture and API**
-  * [ ] [multi-protocol-version support](https://github.com/nhellwig/tokio-cassandra/issues/4)
+  * [x] multi-protocol-version support
 * **Protocol Versions**
   * [ ] v3
   * [ ] v4
 * **Transport**
   * **Multiplexed**
     * [x] non-streaming
-    * [ ] [streaming](https://github.com/nhellwig/tokio-cassandra/issues/3)
+    * [x] streaming - for types that can be large
   * [x] unencrypted
   * [ ] [encryption via TLS](https://github.com/nhellwig/tokio-cassandra/issues/5)
 * **Connection**
