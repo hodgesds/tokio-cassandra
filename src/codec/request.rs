@@ -1,7 +1,7 @@
 use codec::header::{ProtocolVersion, OpCode, Header, Version};
 use std::collections::HashMap;
 
-use codec::primitives::{CqlStringMap, CqlString};
+use codec::primitives::{CqlStringMap, CqlString, CqlBytes};
 use codec::primitives::encode;
 
 error_chain! {
@@ -27,6 +27,7 @@ pub trait CqlEncode {
 pub enum Message {
     Options,
     Startup(StartupMessage),
+    AuthResponse(AuthResponseMessage),
 }
 
 use tokio_core::io::EasyBuf;
@@ -54,12 +55,25 @@ impl CqlEncode for StartupMessage {
     }
 }
 
+pub struct AuthResponseMessage {
+    pub auth_data: CqlBytes<EasyBuf>,
+}
+
+impl CqlEncode for AuthResponseMessage {
+    fn encode(&self, _v: ProtocolVersion, buf: &mut Vec<u8>) -> Result<usize> {
+        let l = buf.len();
+        encode::bytes(&self.auth_data, buf);
+        Ok(buf.len() - l)
+    }
+}
+
 impl Message {
     fn opcode(&self) -> OpCode {
         use self::Message::*;
         match self {
             &Options => OpCode::Options,
             &Startup(_) => OpCode::Startup,
+            &AuthResponse(_) => OpCode::AuthResponse,
         }
 
     }
@@ -72,6 +86,7 @@ impl CqlEncode for Message {
         match *self {
             Message::Options => Ok(0),
             Message::Startup(ref msg) => msg.encode(v, buf),
+            Message::AuthResponse(ref msg) => msg.encode(v, buf),
         }
     }
 }
@@ -111,6 +126,7 @@ mod test {
     use super::*;
     use codec::header::ProtocolVersion::*;
     use codec::primitives::CqlFrom;
+    use codec::authentication::Authenticator;
 
     #[test]
     fn from_options_request() {
@@ -127,7 +143,7 @@ mod test {
     }
 
     #[test]
-    fn from_startup_request() {
+    fn from_startup_req() {
         let o = Message::Startup(StartupMessage {
             cql_version: CqlString::try_from("3.2.1").unwrap(),
             compression: None,
@@ -139,6 +155,32 @@ mod test {
         cql_encode(Version3, flags, stream_id, o, &mut buf).unwrap();
 
         let expected_bytes = include_bytes!("../../tests/fixtures/v3/requests/cli_startup.msg");
+
+        assert_eq!(&buf[..], &expected_bytes[..]);
+    }
+
+    #[test]
+    fn from_auth_response_req() {
+        let a = Authenticator::PlainTextAuthenticator {
+            username: String::from("abcdef12"),
+            password: String::from("123456789asdfghjklqwertyuiopzx"),
+        };
+
+        let mut v = Vec::new();
+        a.encode_auth_response(&mut v);
+
+        println!("v.len() = {:?}", v.len());
+
+        let o = Message::AuthResponse(AuthResponseMessage {
+            auth_data: CqlBytes::try_from(v).unwrap(),
+        });
+
+        let mut buf = Vec::new();
+        let flags = 0;
+        let stream_id = 2;
+        cql_encode(Version3, flags, stream_id, o, &mut buf).unwrap();
+
+        let expected_bytes = include_bytes!("../../tests/fixtures/v3/requests/auth_response.msg");
 
         assert_eq!(&buf[..], &expected_bytes[..]);
     }
