@@ -31,7 +31,7 @@ debug-docker-db: $(CLI_EXECUTABLE) $(DB_IMAGE_OK)
 debug-cli-tests:
 	cd cli && cargo run -- test-connection 127.0.0.1 9042
 
-$(DB_IMAGE_OK): 
+$(DB_IMAGE_OK): $(shell find etc/docker-cassandra -type f)
 	bin/build-image.sh etc/docker-cassandra $(DB_IMAGE_NAME)
 	@touch $(DB_IMAGE_OK)
 
