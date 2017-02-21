@@ -4,7 +4,6 @@ set -e
 
 : ${CASSANDRA_USERNAME='cassandra'}
 : ${CASSANDRA_PASSWORD='cassandra'}
-: ${USE_RANCHER_IP:=false}
 : ${CASSANDRA_ENABLE_SSL:=false}
 : ${CASSANDRA_ENABLE_JMX_AUTHENTICATION:=false}
 : ${CASSANDRA_ENABLE_JMX_SSL:=false}
@@ -14,11 +13,7 @@ set -e
 # TODO detect if this is a restart if necessary
 : ${CASSANDRA_LISTEN_ADDRESS='auto'}
 if [ "$CASSANDRA_LISTEN_ADDRESS" = 'auto' ]; then
-	if [ $USE_RANCHER_IP == true ]; then
-		CASSANDRA_LISTEN_ADDRESS=$(curl http://rancher-metadata/2015-12-19/self/host/agent_ip)
-	else
-		CASSANDRA_LISTEN_ADDRESS="$(hostname --all-ip-addresses | awk '{print $1}')"
-	fi
+  CASSANDRA_LISTEN_ADDRESS="$(hostname --all-ip-addresses | awk '{print $1}')"
 fi
 
 : ${CASSANDRA_BROADCAST_ADDRESS="$CASSANDRA_LISTEN_ADDRESS"}
@@ -27,20 +22,6 @@ if [ "$CASSANDRA_BROADCAST_ADDRESS" = 'auto' ]; then
 fi
 : ${CASSANDRA_BROADCAST_RPC_ADDRESS:=$CASSANDRA_BROADCAST_ADDRESS}
 
-# If we're given a list of rancher services for seeds, then use the ips
-# from these services.
-if [ -n "${CASSANDRA_RANCHER_SERVICE_SEEDS}" ]; then
-  # Loop through all the services and concat the ips
-  for rancher_service in ${CASSANDRA_RANCHER_SERVICE_SEEDS//,/ } ; do
-    service_ips=$(dig +short $rancher_service | awk -v ORS=, '{print $1}' | sed 's/,$//')
-    SERVICE_SEEDS="${SERVICE_SEEDS},${service_ips}"
-  done
-
- # Get the firs three IP addresses
- IFS=',' read -a SUB_SEEDS <<< "$SERVICE_SEEDS"
- SUB_SEEDS=${SUB_SEEDS[@]:0:4}
- CASSANDRA_SEEDS=${SUB_SEEDS// /,}
-fi
 
 : ${CASSANDRA_SEEDS:="$CASSANDRA_BROADCAST_ADDRESS"}
 sed -ri 's/(- seeds:) "127.0.0.1"/\1 "'"$CASSANDRA_SEEDS"'"/' "$CASSANDRA_CONFIG/cassandra.yaml"
@@ -58,23 +39,6 @@ for yaml in \
 	val="${!var}"
 	if [ "$val" ]; then
 		sed -ri 's/^(# )?('"$yaml"':).*/\2 '"$val"'/' "$CASSANDRA_CONFIG/cassandra.yaml"
-	fi
-done
-
-for rackdc in dc rack; do
-	var="CASSANDRA_${rackdc^^}"
-	val="${!var}"
-
-  if [ "${rackdc}" = "dc" -a -z "$val" ]; then
-    val=$(curl http://rancher-metadata/latest/self/host/labels/host-region)
-  fi
-
-  if [ "${rackdc}" = "rack" -a -z "$val" ]; then
-    val=$(curl http://rancher-metadata/latest/self/host/labels/host-az)
-  fi
-
-	if [ "$val" ]; then
-		sed -ri 's/^('"$rackdc"'=).*/\1'"$val"'/' "$CASSANDRA_CONFIG/cassandra-rackdc.properties"
 	fi
 done
 
