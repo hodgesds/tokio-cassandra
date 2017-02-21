@@ -19,7 +19,7 @@ unit-tests:
 	cargo doc
 	cargo test --all-features
 
-$(CLI_EXECUTABLE):
+$(CLI_EXECUTABLE): $(shell find cli -name "*.rs")
 	cd cli && cargo build
 
 integration-tests: $(CLI_EXECUTABLE) $(DB_IMAGE_OK)
