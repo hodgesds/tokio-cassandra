@@ -6,18 +6,28 @@ error_chain! {
     }
 }
 
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub enum Credentials {
+    Login { username: String, password: String },
+}
+
 pub enum Authenticator {
     PlainTextAuthenticator { username: String, password: String },
 }
 
 impl Authenticator {
-    pub fn from_name(name: &str) -> Result<Authenticator> {
+    pub fn from_name(name: &str, credentials: Credentials) -> Result<Authenticator> {
+        use self::Credentials::*;
         match name {
             "org.apache.cassandra.auth.PasswordAuthenticator" => {
-                Ok(Authenticator::PlainTextAuthenticator {
-                    username: String::new(),
-                    password: String::new(),
-                })
+                match credentials {
+                    Login { username: user, password: pwd } => {
+                        Ok(Authenticator::PlainTextAuthenticator {
+                            username: user,
+                            password: pwd,
+                        })
+                    }
+                }
             }
             _ => Err(ErrorKind::UnknownAuthenticator(name.to_string()).into()),
         }
@@ -45,7 +55,11 @@ mod test {
     #[test]
     fn plain_text_auth() {
         let srv_auth = "org.apache.cassandra.auth.PasswordAuthenticator";
-        let auth = Authenticator::from_name(srv_auth);
+        let auth = Authenticator::from_name(srv_auth,
+                                            Credentials::Login {
+                                                username: String::new(),
+                                                password: String::new(),
+                                            });
 
         use super::Authenticator::*;
 
@@ -57,7 +71,11 @@ mod test {
     #[test]
     fn unknown_auth() {
         let srv_auth = "unknown";
-        let auth = Authenticator::from_name(srv_auth);
+        let auth = Authenticator::from_name(srv_auth,
+                                            Credentials::Login {
+                                                username: String::new(),
+                                                password: String::new(),
+                                            });
 
         assert!(auth.is_err());
     }

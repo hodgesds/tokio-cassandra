@@ -1,6 +1,8 @@
 use codec::request::{self, cql_encode};
 use codec::response;
 use codec::header::{Header, ProtocolVersion, Direction};
+use codec::authentication::{Authenticator, Credentials};
+use codec::primitives::{CqlBytes, CqlFrom};
 use tokio_service::Service;
 use futures::{Sink, Stream, Future};
 use tokio_core::reactor::Handle;
@@ -165,6 +167,7 @@ impl Codec for CqlCodec {
 #[derive(PartialEq, Debug, Clone)]
 pub struct CqlProto {
     pub version: ProtocolVersion,
+    pub credentials: Option<Credentials>,
 }
 
 impl<T: Io + 'static> ClientProto<T> for CqlProto {
@@ -180,10 +183,11 @@ impl<T: Io + 'static> ClientProto<T> for CqlProto {
 
     fn bind_transport(&self, io: T) -> Self::BindTransport {
         let transport = io.framed(CqlCodec::new(self.version));
+        let creds = self.credentials.clone();
         let handshake = transport.send(SimpleRequest(0, request::Message::Options).into())
             .and_then(|transport| transport.into_future().map_err(|(e, _)| e))
-            .and_then(|(res, transport)| interpret_response_to_option(transport, res))
-            .and_then(|(transport, startup)| send_startup(transport, startup));
+            .and_then(|(res, transport)| interpret_response_to_option(transport, res, creds))
+            .and_then(|(transport, msg)| send_message(transport, msg));
         Box::new(handshake)
     }
 }
@@ -265,8 +269,9 @@ pub struct SimpleResponse(pub RequestId, pub response::Message);
 pub struct SimpleRequest(pub RequestId, pub request::Message);
 
 fn interpret_response_to_option<T>(transport: Framed<T, CqlCodec>,
-                                   res: Option<CodecInputFrame>)
-                                   -> io::Result<(Framed<T, CqlCodec>, request::StartupMessage)>
+                                   res: Option<CodecInputFrame>,
+                                   creds: Option<Credentials>)
+                                   -> io::Result<(Framed<T, CqlCodec>, request::Message)>
     where T: Io + 'static
 {
     res.ok_or_else(|| io_err("No reply received upon 'OPTIONS' message"))
@@ -280,25 +285,45 @@ fn interpret_response_to_option<T>(transport: Framed<T, CqlCodec>,
                             .clone(),
                         compression: None,
                     };
-                    Ok((transport, startup))
+                    Ok((transport, request::Message::Startup(startup)))
+                }
+                response::Message::Authenticate(msg) => {
+                    let creds =
+                        creds.ok_or(io_err(format!("No credentials provided but server requires \
+                                                   authentication by {}",
+                                                  msg.authenticator.as_ref())))?;
+
+                    let authenticator = Authenticator::from_name(msg.authenticator.as_ref(),
+                                                                 creds)
+                        .map_err(|err| io_err(format!("Authenticator Err: {}", err)))?;
+
+                    let mut buf = Vec::new();
+                    authenticator.encode_auth_response(&mut buf);
+
+                    Ok((transport,
+                        request::Message::AuthResponse(request::AuthResponseMessage {
+                            auth_data: CqlBytes::try_from(buf)
+                                .map_err(|err| io_err(format!("Message Err: {}", err)))?,
+                        })))
                 }
                 msg => {
-                    Err(io_err(format!("Expected to receive 'SUPPORTED' message but got {:?}",
+                    Err(io_err(format!("Expected to receive 'SUPPORTED' or 'AUTHENTICATE' \
+                                        message but got {:?}",
                                        msg)))
                 }
             }
         })
 }
 
-fn send_startup<T>(transport: Framed<T, CqlCodec>,
-                   startup: request::StartupMessage)
+fn send_message<T>(transport: Framed<T, CqlCodec>,
+                   msg: request::Message)
                    -> Box<Future<Error = io::Error, Item = Framed<T, CqlCodec>> + 'static>
     where T: Io + 'static
 {
-    Box::new(transport.send(SimpleRequest(0, request::Message::Startup(startup)).into())
+    Box::new(transport.send(SimpleRequest(0, msg).into())
         .and_then(|transport| transport.into_future().map_err(|(e, _)| e))
         .and_then(|(res, transport)| {
-            res.ok_or_else(|| io_err("No reply received upon 'STARTUP' message"))
+            res.ok_or_else(|| io_err("No reply received upon message"))
                 .and_then(|response| {
                     let SimpleResponse(_id, res) = response.into();
                     match res {

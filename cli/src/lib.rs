@@ -44,7 +44,8 @@ mod scmds {
         let mut core = Core::new().expect("Core can be created");
         let handle = core.handle();
 
-        let client = Client { protocol: CqlProto { version: ProtocolVersion::Version3 } }
+        let client = Client { protocol: CqlProto { version: ProtocolVersion::Version3,
+        credentials: None} }
             .connect(&addr, &handle)
             .and_then(|client| {
                 // TODO: make client handle creation more ergonomic
