@@ -52,8 +52,9 @@ impl From<response::Message> for StreamingMessage {
         match f {
             response::Message::Ready => StreamingMessage::Ready,
             response::Message::Supported(msg) => StreamingMessage::Supported(msg),
+            response::Message::AuthSuccess(_) |
             response::Message::Authenticate(_) => {
-                panic!("A Authenticate msg should never reach the Client, instead handling is \
+                panic!("This msg should never reach the Client, instead handling is \
                         done in the background")
             }
         }

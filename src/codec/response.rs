@@ -1,4 +1,4 @@
-use codec::primitives::{CqlFrom, CqlString, CqlStringList, CqlStringMultiMap};
+use codec::primitives::{CqlFrom, CqlString, CqlBytes, CqlStringList, CqlStringMultiMap};
 use codec::header::ProtocolVersion;
 use codec::primitives::decode;
 use tokio_core::io::EasyBuf;
@@ -28,6 +28,7 @@ pub enum Message {
     Supported(SupportedMessage),
     Ready,
     Authenticate(AuthenticateMessage),
+    AuthSuccess(AuthSuccessMessage),
 }
 
 pub trait CqlDecode<T> {
@@ -84,6 +85,19 @@ impl CqlDecode<AuthenticateMessage> for AuthenticateMessage {
     }
 }
 
+#[derive(Debug)]
+pub struct AuthSuccessMessage {
+    pub payload: CqlBytes<EasyBuf>,
+}
+
+impl CqlDecode<AuthSuccessMessage> for AuthSuccessMessage {
+    fn decode(_v: ProtocolVersion, buf: ::tokio_core::io::EasyBuf) -> Result<AuthSuccessMessage> {
+        decode::bytes(buf)
+            .map(|d| AuthSuccessMessage { payload: d.1 })
+            .map_err(|err| ErrorKind::ParserError(format!("{}", err)).into())
+    }
+}
+
 #[cfg(test)]
 mod test {
     use codec::header::Header;
@@ -134,6 +148,15 @@ mod test {
             .unwrap();
 
         assert_eq!(res.authenticator, authenticator);
+    }
+
+    #[test]
+    fn decode_auth_success_message() {
+        let msg = include_bytes!("../../tests/fixtures/v3/responses/auth_success.msg");
+        let buf = Vec::from(skip_header(&msg[..])).into();
+        let res = AuthSuccessMessage::decode(Version3, buf).unwrap();
+
+        assert_eq!(res.payload.as_bytes(), None);
     }
 
 }
