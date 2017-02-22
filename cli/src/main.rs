@@ -28,7 +28,17 @@ pub fn run() -> Result<()> {
             .required(false)
             .default_value("9042")
             .takes_value(true)
-            .help("The port to connect to")));
+            .help("The port to connect to")))
+        .arg(Arg::with_name("user")
+            .required(false)
+            .short("u")
+            .long("user")
+            .takes_value(true))
+        .arg(Arg::with_name("password")
+            .required(false)
+            .short("p")
+            .long("password")
+            .takes_value(true));
     let args: clap::ArgMatches = app.get_matches();
     match args.subcommand() {
         ("test-connection", Some(args)) => tcc::test_connection(args),

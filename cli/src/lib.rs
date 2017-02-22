@@ -29,6 +29,7 @@ mod scmds {
     use tokio_cassandra::streaming::{CqlProto, Client};
     use tokio_cassandra::EasyClientHandle;
     use tokio_cassandra::codec::request;
+    use tokio_cassandra::codec::authentication::Credentials;
     use tokio_cassandra::codec::header::ProtocolVersion;
     use tokio_core::reactor::Core;
     use tokio_service::Service;
@@ -41,11 +42,26 @@ mod scmds {
         let addr = format!("{}:{}", host, port).parse()
             .chain_err(|| format!("Host '{}' could not be parsed as IP", host))?;
 
+        let creds = {
+            if let (Some(usr), Some(pwd)) = (args.value_of("user"), args.value_of("password")) {
+                Some(Credentials::Login {
+                    username: usr.to_string(),
+                    password: pwd.to_string(),
+                })
+            } else {
+                None
+            }
+        };
+
         let mut core = Core::new().expect("Core can be created");
         let handle = core.handle();
 
-        let client = Client { protocol: CqlProto { version: ProtocolVersion::Version3,
-        credentials: None} }
+        let client = Client {
+                protocol: CqlProto {
+                    version: ProtocolVersion::Version3,
+                    credentials: creds,
+                },
+            }
             .connect(&addr, &handle)
             .and_then(|client| {
                 // TODO: make client handle creation more ergonomic
