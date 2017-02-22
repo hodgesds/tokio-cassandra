@@ -30,6 +30,7 @@ pub enum ChunkedMessage {
 #[derive(Debug)]
 pub enum StreamingMessage {
     Supported(response::SupportedMessage),
+    Error(response::ErrorMessage),
     Partial(ResponseStream),
     Ready,
 }
@@ -40,6 +41,7 @@ impl From<StreamingMessage> for response::Message {
         match f {
             Ready => response::Message::Ready,
             Supported(msg) => response::Message::Supported(msg),
+            Error(msg) => response::Message::Error(msg),
             Partial(_) => {
                 panic!("Partials are not suppported - this is just used during handshake")
             }
@@ -57,6 +59,7 @@ impl From<response::Message> for StreamingMessage {
                 panic!("This msg should never reach the Client, instead handling is \
                         done in the background")
             }
+            response::Message::Error(msg) => StreamingMessage::Error(msg),
         }
     }
 }

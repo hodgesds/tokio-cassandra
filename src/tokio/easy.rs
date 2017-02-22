@@ -17,6 +17,7 @@ impl From<ClientHandle> for EasyClientHandle {
 #[derive(Debug)]
 pub enum Message {
     Supported(response::SupportedMessage),
+    Error(response::ErrorMessage),
     Ready,
 }
 
@@ -25,6 +26,7 @@ impl From<StreamingMessage> for Message {
         match f {
             StreamingMessage::Ready => Message::Ready,
             StreamingMessage::Supported(msg) => Message::Supported(msg),
+            StreamingMessage::Error(msg) => Message::Error(msg),
             StreamingMessage::Partial(_stream) => {
                 // TODO: exhaust stream and build a singular response in a blocking fashion
                 unimplemented!()

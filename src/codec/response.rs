@@ -29,6 +29,7 @@ pub enum Message {
     Ready,
     Authenticate(AuthenticateMessage),
     AuthSuccess(AuthSuccessMessage),
+    Error(ErrorMessage),
 }
 
 pub trait CqlDecode<T> {
@@ -98,6 +99,23 @@ impl CqlDecode<AuthSuccessMessage> for AuthSuccessMessage {
     }
 }
 
+#[derive(Debug)]
+pub struct ErrorMessage {
+    pub code: i32,
+    pub text: CqlString<EasyBuf>,
+}
+
+impl CqlDecode<ErrorMessage> for ErrorMessage {
+    fn decode(_v: ProtocolVersion, buf: ::tokio_core::io::EasyBuf) -> Result<ErrorMessage> {
+        let (buf, code) = decode::int(buf)?;
+        let (_, text) = decode::string(buf)?;
+        Ok(ErrorMessage {
+            code: code,
+            text: text,
+        })
+    }
+}
+
 #[cfg(test)]
 mod test {
     use codec::header::Header;
@@ -159,4 +177,14 @@ mod test {
         assert_eq!(res.payload.as_bytes(), None);
     }
 
+    #[test]
+    fn decode_error_message() {
+        let msg = include_bytes!("../../tests/fixtures/v3/responses/error_credentials.msg");
+        let buf = Vec::from(skip_header(&msg[..])).into();
+        let res = ErrorMessage::decode(Version3, buf).unwrap();
+
+        assert_eq!(res.code, 256);
+        assert_eq!(res.text,
+                   CqlString::try_from("Username and/or password are incorrect").unwrap());
+    }
 }
