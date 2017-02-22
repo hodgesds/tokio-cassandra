@@ -14,6 +14,13 @@ pub fn decode_complete_message_by_opcode(version: ProtocolVersion,
             response::Message::Supported(response::SupportedMessage::decode(version, buf)?)
         }
         Ready => response::Message::Ready,
+        Authenticate => {
+            response::Message::Authenticate(response::AuthenticateMessage::decode(version, buf)?)
+        }
+        AuthSuccess => {
+            response::Message::AuthSuccess(response::AuthSuccessMessage::decode(version, buf)?)
+        }
+        Error => response::Message::Error(response::ErrorMessage::decode(version, buf)?),
         _ => unimplemented!(),
     })
 }

@@ -34,6 +34,8 @@ pub enum StreamingMessage {
     Supported(response::SupportedMessage),
     Error(response::ErrorMessage),
     Partial(ResponseStream),
+    Authenticate(response::AuthenticateMessage),
+    AuthSuccess(response::AuthSuccessMessage),
     Ready,
 }
 
@@ -44,6 +46,8 @@ impl From<StreamingMessage> for response::Message {
             Ready => response::Message::Ready,
             Supported(msg) => response::Message::Supported(msg),
             Error(msg) => response::Message::Error(msg),
+            AuthSuccess(msg) => response::Message::AuthSuccess(msg),
+            Authenticate(msg) => response::Message::Authenticate(msg),
             Partial(_) => {
                 panic!("Partials are not suppported - this is just used during handshake")
             }
@@ -56,11 +60,8 @@ impl From<response::Message> for StreamingMessage {
         match f {
             response::Message::Ready => StreamingMessage::Ready,
             response::Message::Supported(msg) => StreamingMessage::Supported(msg),
-            response::Message::AuthSuccess(_) |
-            response::Message::Authenticate(_) => {
-                panic!("This msg should never reach the Client, instead handling is \
-                        done in the background")
-            }
+            response::Message::AuthSuccess(msg) => StreamingMessage::AuthSuccess(msg),
+            response::Message::Authenticate(msg) => StreamingMessage::Authenticate(msg),
             response::Message::Error(msg) => StreamingMessage::Error(msg),
         }
     }
