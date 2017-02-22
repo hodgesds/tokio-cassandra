@@ -33,6 +33,7 @@ mkdir build
 
 cp -R secrets build/
 cp run.sh build/
+cp cassandra.yaml build/
 cp cqlshrc build/
 
 # Copy docker file, and override the CASSANDRA_VERSION string

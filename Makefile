@@ -28,7 +28,7 @@ integration-tests: $(CLI_EXECUTABLE) $(DB_IMAGE_OK)
 	bin/integration-test.sh $(CLI_EXECUTABLE) $(DB_IMAGE_NAME)
 
 debug-docker-db: $(CLI_EXECUTABLE) $(DB_IMAGE_OK)
-	/usr/bin/env bash -c 'source lib/utilities.sh && start_dependencies $(DB_IMAGE_NAME) 9042 "$(CLI_EXECUTABLE) test-connection"'
+	/usr/bin/env bash -c 'source lib/utilities.sh && start_dependencies $(DB_IMAGE_NAME) 9042 "$(CLI_EXECUTABLE) test-connection" "-e CASSANDRA_REQUIRE_CLIENT_AUTH=true"'
 
 attach-debug-docker-db:
 	DEBUG_RUN_IMAGE=true $(MAKE) debug-docker-db
