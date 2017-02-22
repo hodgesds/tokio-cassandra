@@ -26,6 +26,7 @@ start_dependencies() {
 	local IMAGE_NAME=${1:?Need cassandra image name}
 	local CASSANDRA_PORT=${2:?Need cassandra port to expose/expect on host}
 	local TESTER=${3:?Need command line to execute to see if cassandra is up}
+	local ADD_ARGS=${4:-} # optional additional arguments
 	echo starting dependencies
 	local debug_mode=${DEBUG_RUN_IMAGE:-false}
 	local daemonize="-d"
@@ -33,13 +34,19 @@ start_dependencies() {
 		daemonize=''
 	fi
 	docker rm --force $CONTAINER_NAME || true;
-	docker run --name "$CONTAINER_NAME" --env-file <(echo "$ENV_FILE") $daemonize -p "$CASSANDRA_HOST":"$CASSANDRA_PORT":9042 --expose 9042 $IMAGE_NAME 1>&2 || exit $?
+	docker run --name "$CONTAINER_NAME" --env-file <(echo "$ENV_FILE") $ADD_ARGS $daemonize -p "$CASSANDRA_HOST":"$CASSANDRA_PORT":9042 --expose 9042 $IMAGE_NAME 1>&2 || exit $?
 	
 	if [ "$debug_mode" = false ]; then
-		while ! $TESTER "$CASSANDRA_HOST" "$CASSANDRA_PORT"; do
-			echo "Waiting for cassandra on $CASSANDRA_HOST:$CASSANDRA_PORT" 1>&2
-			sleep 1
+		local retries_left=15
+		while ! $TESTER "$CASSANDRA_HOST" "$CASSANDRA_PORT" && [ $retries_left != 0 ]; do
+			echo "Waiting for cassandra on $CASSANDRA_HOST:$CASSANDRA_PORT, retries-left=$retries_left" 1>&2
+			sleep 2
+			((retries_left-=1))
 		done
+		if [ $retries_left = 0 ]; then
+			echo "Could not connect to cassandra - may be a problem with '$TESTER', or cassandra itself" 1>&2
+			return 3
+		fi
 		echo "Cassandra up on $CASSANDRA_HOST:$CASSANDRA_PORT" 1>&2
 	fi
 }

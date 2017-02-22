@@ -15,7 +15,11 @@ fi
 
 
 trap stop_dependencies 0 1 2 5 15
-start_dependencies "$db" $CASSANDRA_PORT "$cli test-connection"
+echo ">>>>>>>>>>>>>>>>>>>> TEST CONNECTION: NO-TLS"
+start_dependencies "$db" $CASSANDRA_PORT "$cli test-connection" "-e CASSANDRA_REQUIRE_CLIENT_AUTH=false"
+
+echo ">>>>>>>>>>>>>>>>>>>> TEST CONNECTION: WITH-TLS"
+start_dependencies "$db" $CASSANDRA_PORT "$cli test-connection" "-e CASSANDRA_REQUIRE_CLIENT_AUTH=true"
 
 $cli test-connection $CASSANDRA_HOST $CASSANDRA_PORT
 
