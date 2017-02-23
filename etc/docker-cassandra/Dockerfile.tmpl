@@ -42,8 +42,8 @@ RUN mkdir /etc/service/cassandra /config
 COPY run.sh /etc/service/cassandra/run
 
 COPY cassandra.yaml /etc/cassandra/
-COPY secrets/keystore /config/keystore
-COPY secrets/truststore /config/truststore
+COPY secrets/keystore.jks /config/keystore
+COPY secrets/truststore.jks /config/truststore
 
 # Remove the CRON service
 RUN rm -rf /etc/service/cron
