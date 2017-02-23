@@ -191,11 +191,10 @@ impl<T: Io + 'static> ClientProto<T> for CqlProto {
         let transport = io.framed(CqlCodec::new(self.version));
         let creds = self.credentials.clone();
         let creds2 = self.credentials.clone();
-        let handshake = transport.send(SimpleRequest(0, request::Message::Options).into())
-            .and_then(|transport| transport.into_future().map_err(|(e, _)| e))
-            .and_then(|(res, transport)| interpret_response_to_option(transport, res, creds))
+        let handshake = send_message(transport, request::Message::Options)
+            .and_then(|(res, transport)| interpret_response(transport, res, creds))
             .and_then(|(transport, msg)| send_message(transport, msg))
-            .and_then(|(res, transport)| interpret_response_to_option(transport, res, creds2))
+            .and_then(|(res, transport)| interpret_response(transport, res, creds2))
             .and_then(|(transport, msg)| send_message(transport, msg))
             .and_then(|(_res, transport)| Ok(transport));
         Box::new(handshake)
@@ -278,10 +277,10 @@ impl From<SimpleRequest> for CodecOutputFrame {
 pub struct SimpleResponse(pub RequestId, pub response::Message);
 pub struct SimpleRequest(pub RequestId, pub request::Message);
 
-fn interpret_response_to_option<T>(transport: Framed<T, CqlCodec>,
-                                   res: Option<CodecInputFrame>,
-                                   creds: Option<Credentials>)
-                                   -> io::Result<(Framed<T, CqlCodec>, request::Message)>
+fn interpret_response<T>(transport: Framed<T, CqlCodec>,
+                         res: Option<CodecInputFrame>,
+                         creds: Option<Credentials>)
+                         -> io::Result<(Framed<T, CqlCodec>, request::Message)>
     where T: Io + 'static
 {
     info!("interpreting response {:?}", res);
@@ -335,7 +334,8 @@ fn interpret_response_to_option<T>(transport: Framed<T, CqlCodec>,
 
 fn send_message<T>(transport: Framed<T, CqlCodec>,
                    msg: request::Message)
-                   -> Box<Future<Error = io::Error, Item = (Option<CodecInputFrame>, Framed<T, CqlCodec>)> + 'static>
+                   -> Box<Future<Error = io::Error,
+                       Item = (Option<CodecInputFrame>, Framed<T, CqlCodec>)> + 'static>
     where T: Io + 'static
 {
     info!("send_message executed");

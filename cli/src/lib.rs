@@ -1,8 +1,6 @@
 extern crate clap;
 
 #[macro_use]
-extern crate log;
-#[macro_use]
 extern crate error_chain;
 extern crate tokio_cassandra;
 extern crate tokio_core;
@@ -65,12 +63,12 @@ mod scmds {
                 },
             }
             .connect(&addr, &handle)
-        .and_then(|client| {
-            // TODO: make client handle creation more ergonomic
-            // map(EasyClientHandle::into) didn't work
-            let client: EasyClientHandle = client.into();
-            client.call(request::Message::Options)
-        });
+            .and_then(|client| {
+                // TODO: make client handle creation more ergonomic
+                // map(EasyClientHandle::into) didn't work
+                let client: EasyClientHandle = client.into();
+                client.call(request::Message::Options)
+            });
 
         core.run(client)
             .chain_err(|| format!("Failed to connect to {}:{}", host, port))
