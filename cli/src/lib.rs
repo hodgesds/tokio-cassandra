@@ -65,7 +65,7 @@ mod scmds {
             .connect(&addr, &handle)
             .and_then(|client| {
                 // TODO: make client handle creation more ergonomic
-                // map(EasyClientHandle::into) didn't work
+                // map(EasyClientHanle::into) didn't work
                 let client: EasyClientHandle = client.into();
                 client.call(request::Message::Options)
             });

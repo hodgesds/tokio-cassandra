@@ -45,7 +45,11 @@ pub fn run() -> Result<()> {
             .takes_value(true)));
     let args: clap::ArgMatches = app.get_matches();
     match args.subcommand() {
-        ("test-connection", Some(args)) => tcc::test_connection(args),
+        ("test-connection", Some(args)) => {
+            let x = tcc::test_connection(args);
+            println!("x = {:?}", x); 
+            x
+        },
         _ => {
             println!("{}", args.usage());
             ::std::process::exit(2);
