@@ -1,6 +1,7 @@
 CLI_EXECUTABLE=target/debug/tcc
 DB_IMAGE_OK=.db-image.ok
 DB_IMAGE_NAME=our/cassandra:latest
+
 DB_PORT=9042
 MAKESHELL=$(shell /usr/bin/env bash)
 
@@ -12,6 +13,7 @@ help:
 	$(info integration-tests| Run tests that use a cassandra node)
 	$(info -- DEBUGGING --------------------------------------------------------------------------------------------------)
 	$(info cli-tests        | Run the cli with certain arguments to help debugging - needs <some>-docker-db)
+	$(info secrets          | generate all secrets with default passwords)
 	$(info tls-tests        | Run cli against a TLS instance - needs tls-docker-db)
 	$(info plain-docker-db  | Bring up a backgrounded cassandra database for local usage on 9042)
 	$(info auth-docker-db   | Bring up a backgrounded cassandra database for local usage on 9042, requiring authentication)
@@ -31,13 +33,13 @@ $(CLI_EXECUTABLE): $(shell find cli -name "*.rs")
 integration-tests: $(CLI_EXECUTABLE) $(DB_IMAGE_OK)
 	bin/integration-test.sh $(CLI_EXECUTABLE) $(DB_IMAGE_NAME)
 
-auth-docker-db: $(CLI_EXECUTABLE) $(DB_IMAGE_OK)
+auth-docker-db: $(DB_IMAGE_OK)
 	/usr/bin/env bash -c 'source lib/utilities.sh && start-dependencies-auth $(DB_IMAGE_NAME)'
 
-tls-docker-db: $(CLI_EXECUTABLE) $(DB_IMAGE_OK)
+tls-docker-db: $(DB_IMAGE_OK)
 	/usr/bin/env bash -c 'source lib/utilities.sh && start-dependencies-tls $(DB_IMAGE_NAME)'
 
-plain-docker-db: $(CLI_EXECUTABLE) $(DB_IMAGE_OK)
+plain-docker-db: $(DB_IMAGE_OK)
 	/usr/bin/env bash -c 'source lib/utilities.sh && start-dependencies-plain $(DB_IMAGE_NAME)'
 
 type ?= plain
@@ -46,6 +48,9 @@ attach-docker-db:
 
 cli-tests:
 	cd cli && cargo run -- test-connection 127.0.0.1 9042
+
+secrets:
+	$(MAKE) -C etc/docker-cassandra $@
 
 $(DB_IMAGE_OK): $(shell find etc/docker-cassandra -type f) bin/build-image.sh
 	bin/build-image.sh etc/docker-cassandra $(DB_IMAGE_NAME)

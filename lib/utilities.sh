@@ -52,7 +52,7 @@ start-dependencies() {
 }
 
 function test-tls () {
-   curl -m 1 -E ./etc/docker-cassandra/secrets/client-keystore.p12:cassandra -k https://$1:$2
+   curl -m 1 -E ./etc/docker-cassandra/secrets/keystore.p12:cassandra -k https://$1:$2
    [ $? = 28 ]
 }
 
