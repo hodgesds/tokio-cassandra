@@ -10,6 +10,9 @@ extern crate clap;
 #[macro_use]
 extern crate error_chain;
 
+#[macro_use]
+extern crate env_logger;
+
 use clap::{SubCommand, Arg};
 
 use tcc::errors::*;
@@ -17,6 +20,7 @@ use tcc::errors::*;
 quick_main!(run);
 
 pub fn run() -> Result<()> {
+    env_logger::init().unwrap();
 
     let mut app: clap::App = app_from_crate!();
     app = app.subcommand(SubCommand::with_name("test-connection")

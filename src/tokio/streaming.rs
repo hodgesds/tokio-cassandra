@@ -134,7 +134,7 @@ impl Codec for CqlCodec {
                 /* TODO: implement version mismatch test */
                 let code = h.op_code.clone();
                 let version = h.version.version;
-                Ok(Some(Frame::Message {
+                let msg = Frame::Message {
                     id: h.stream_id as RequestId,
                     /* TODO: verify amount of consumed bytes equals the ones actually parsed */
                     message: decode_complete_message_by_opcode(version,
@@ -144,7 +144,9 @@ impl Codec for CqlCodec {
                         .into(),
                     body: false,
                     solo: false,
-                }))
+                };
+                info!("decoded msg: {:?}", msg);
+                Ok(Some(msg))
             }
         }
     }
@@ -152,12 +154,14 @@ impl Codec for CqlCodec {
     fn encode(&mut self, msg: Self::Out, buf: &mut Vec<u8>) -> io::Result<()> {
         match msg {
             Frame::Message { id, message, .. } => {
-                cql_encode(self.version,
-                           self.flags,
-                           id as u16, /* FIXME safe cast */
-                           message,
-                           buf)
-                    .map_err(|err| io::Error::new(io::ErrorKind::Other, err))
+                info!("encoded msg: {:?}", message);
+                let msg = cql_encode(self.version,
+                                     self.flags,
+                                     id as u16, /* FIXME safe cast */
+                                     message,
+                                     buf)
+                    .map_err(|err| io::Error::new(io::ErrorKind::Other, err));
+                msg
             }
             Frame::Error { error, .. } => Err(error),
             Frame::Body { .. } => panic!("Streaming of Requests is not currently supported"),
@@ -183,12 +187,17 @@ impl<T: Io + 'static> ClientProto<T> for CqlProto {
     type BindTransport = Box<Future<Item = Self::Transport, Error = io::Error>>;
 
     fn bind_transport(&self, io: T) -> Self::BindTransport {
+        info!("binding transport!");
         let transport = io.framed(CqlCodec::new(self.version));
         let creds = self.credentials.clone();
+        let creds2 = self.credentials.clone();
         let handshake = transport.send(SimpleRequest(0, request::Message::Options).into())
             .and_then(|transport| transport.into_future().map_err(|(e, _)| e))
             .and_then(|(res, transport)| interpret_response_to_option(transport, res, creds))
-            .and_then(|(transport, msg)| send_message(transport, msg));
+            .and_then(|(transport, msg)| send_message(transport, msg))
+            .and_then(|(res, transport)| interpret_response_to_option(transport, res, creds2))
+            .and_then(|(transport, msg)| send_message(transport, msg))
+            .and_then(|(res, transport)| Ok(transport));
         Box::new(handshake)
     }
 }
@@ -275,6 +284,7 @@ fn interpret_response_to_option<T>(transport: Framed<T, CqlCodec>,
                                    -> io::Result<(Framed<T, CqlCodec>, request::Message)>
     where T: Io + 'static
 {
+    info!("interpreting response {:?}", res);
     res.ok_or_else(|| io_err("No reply received upon 'OPTIONS' message"))
         .and_then(|response| {
             let SimpleResponse(_id, res) = response.into();
@@ -286,6 +296,7 @@ fn interpret_response_to_option<T>(transport: Framed<T, CqlCodec>,
                             .clone(),
                         compression: None,
                     };
+                    info!("startup {:?}", startup);
                     Ok((transport, request::Message::Startup(startup)))
                 }
                 response::Message::Authenticate(msg) => {
@@ -293,6 +304,8 @@ fn interpret_response_to_option<T>(transport: Framed<T, CqlCodec>,
                         creds.ok_or(io_err(format!("No credentials provided but server requires \
                                                    authentication by {}",
                                                   msg.authenticator.as_ref())))?;
+
+                    info!("Got Creds: {:?}", creds);
 
                     let authenticator = Authenticator::from_name(msg.authenticator.as_ref(),
                                                                  creds)
@@ -307,6 +320,10 @@ fn interpret_response_to_option<T>(transport: Framed<T, CqlCodec>,
                                 .map_err(|err| io_err(format!("Message Err: {}", err)))?,
                         })))
                 }
+                response::Message::Ready => Err(io_err("ready not expected")),
+                response::Message::Error(msg) => {
+                    Err(io_err(format!("Got Error {}: {:?}", msg.code, msg.text)))
+                }
                 msg => {
                     Err(io_err(format!("Expected to receive 'SUPPORTED' or 'AUTHENTICATE' \
                                         message but got {:?}",
@@ -318,23 +335,10 @@ fn interpret_response_to_option<T>(transport: Framed<T, CqlCodec>,
 
 fn send_message<T>(transport: Framed<T, CqlCodec>,
                    msg: request::Message)
-                   -> Box<Future<Error = io::Error, Item = Framed<T, CqlCodec>> + 'static>
+                   -> Box<Future<Error = io::Error, Item = (Option<CodecInputFrame>, Framed<T, CqlCodec>)> + 'static>
     where T: Io + 'static
 {
+    info!("send_message executed");
     Box::new(transport.send(SimpleRequest(0, msg).into())
-        .and_then(|transport| transport.into_future().map_err(|(e, _)| e))
-        .and_then(|(res, transport)| {
-            res.ok_or_else(|| io_err("No reply received upon message"))
-                .and_then(|response| {
-                    let SimpleResponse(_id, res) = response.into();
-                    match res {
-                        response::Message::Ready => Ok(transport),
-                        other => {
-                            Err(io_err(format!("unexpected response, need READY or \
-                                                AUTHENTICATE, got {:?}",
-                                               other)))
-                        }
-                    }
-                })
-        }))
+        .and_then(|transport| transport.into_future().map_err(|(e, _)| e)))
 }

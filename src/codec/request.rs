@@ -24,6 +24,7 @@ pub trait CqlEncode {
     fn encode(&self, v: ProtocolVersion, f: &mut Vec<u8>) -> Result<usize>;
 }
 
+#[derive(Debug)]
 pub enum Message {
     Options,
     Startup(StartupMessage),
@@ -31,6 +32,8 @@ pub enum Message {
 }
 
 use tokio_core::io::EasyBuf;
+
+#[derive(Debug)]
 pub struct StartupMessage {
     pub cql_version: CqlString<EasyBuf>,
     pub compression: Option<CqlString<EasyBuf>>,
@@ -55,6 +58,7 @@ impl CqlEncode for StartupMessage {
     }
 }
 
+#[derive(Debug)]
 pub struct AuthResponseMessage {
     pub auth_data: CqlBytes<EasyBuf>,
 }
