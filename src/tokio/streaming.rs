@@ -197,7 +197,7 @@ impl<T: Io + 'static> ClientProto<T> for CqlProto {
             .and_then(|(transport, msg)| send_message(transport, msg))
             .and_then(|(res, transport)| interpret_response_to_option(transport, res, creds2))
             .and_then(|(transport, msg)| send_message(transport, msg))
-            .and_then(|(res, transport)| Ok(transport));
+            .and_then(|(_res, transport)| Ok(transport));
         Box::new(handshake)
     }
 }

@@ -1,6 +1,8 @@
 extern crate clap;
 
 #[macro_use]
+extern crate log;
+#[macro_use]
 extern crate error_chain;
 extern crate tokio_cassandra;
 extern crate tokio_core;
@@ -62,7 +64,7 @@ mod scmds {
                     credentials: creds,
                 },
             }
-            .connect(&addr, &handle);
+            .connect(&addr, &handle)
         .and_then(|client| {
             // TODO: make client handle creation more ergonomic
             // map(EasyClientHandle::into) didn't work
