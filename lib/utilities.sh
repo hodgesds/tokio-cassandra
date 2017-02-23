@@ -1,5 +1,6 @@
 #!/bin/bash
 CONTAINER_NAME=db
+CASSANDRA_PORT=9042
 CASSANDRA_HOST=127.0.0.1
 
 read -r -d '' ENV_FILE <<EOF
@@ -22,11 +23,10 @@ CASSANDRA_AUTHENTICATOR=AllowAllAuthenticator
 	CASSANDRA_ADMIN_PASSEORD=cassandra
 EOF
 
-start_dependencies() {
+start-dependencies() {
 	local IMAGE_NAME=${1:?Need cassandra image name}
-	local CASSANDRA_PORT=${2:?Need cassandra port to expose/expect on host}
-	local TESTER=${3:?Need command line to execute to see if cassandra is up}
-	local ADD_ARGS=${4:-} # optional additional arguments
+	local TESTER=${2:?Need command line to execute to see if cassandra is up}
+	local ADD_ARGS=${3:-} # optional additional arguments
 	echo starting dependencies
 	local debug_mode=${DEBUG_RUN_IMAGE:-false}
 	local daemonize="-d"
@@ -51,7 +51,29 @@ start_dependencies() {
 	fi
 }
 
-stop_dependencies() {
+function test-tls () {
+   curl -m 1 -E ./etc/docker-cassandra/secrets/client-keystore.p12:cassandra -k https://$1:$2
+   [ $? = 28 ]
+}
+
+function test-simple () {
+	curl -m 1 http://$1:$2
+   [ $? = 28 ]
+}
+
+function start-dependencies-plain () {
+	start-dependencies "$1" test-simple
+}
+
+function start-dependencies-auth () {
+	start-dependencies "$1" test-simple "-e CASSANDRA_AUTHENTICATOR=PasswordAuthenticator"
+}
+
+function start-dependencies-tls () {
+	start-dependencies "$1" test-tls "-e CASSANDRA_REQUIRE_CLIENT_AUTH=true"
+}
+
+stop-dependencies() {
 	echo stopping dependencies ...
 	docker rm --force $CONTAINER_NAME >/dev/null
 }

@@ -1,24 +1,26 @@
 #!/usr/bin/env bash
 
 cli=${1:?Please provide the commandline interface executable as first argument}
-db=${2:?Please provide the image name for the cassandra database}
+image=${2:?Please provide the image name for the cassandra database}
 
 source "$(dirname $0)/../lib/utilities.sh"
 
-set -e
+set -eu
+port=$CASSANDRA_PORT
+host=$CASSANDRA_HOST
+set +u
 
-if [ -z "$TRAVIS" ]; then
-    CASSANDRA_PORT=12423
-else
-    CASSANDRA_PORT=9042
-fi
+trap stop-dependencies 0 1 2 5 15
+# echo ">>>>>>>>>>>>>>>>>>>> TEST CONNECTION: PLAIN"
+start-dependencies-plain $image
+$cli test-connection $host $port
 
-trap stop_dependencies 0 1 2 5 15
-echo ">>>>>>>>>>>>>>>>>>>> TEST CONNECTION: PLAIN"
-start_dependencies "$db" $CASSANDRA_PORT "$cli test-connection" "-e CASSANDRA_REQUIRE_CLIENT_AUTH=false"
+# echo ">>>>>>>>>>>>>>>>>>>> TEST CONNECTION: WITH-AUTHENTICATION"
+start-dependencies-auth $image
+$cli test-connection -u cassandra -p cassandra $host $port
 
-echo ">>>>>>>>>>>>>>>>>>>> TEST CONNECTION: WITH-AUTHENTICATION"
-start_dependencies "$db" $CASSANDRA_PORT "$cli test-connection -u cassandra -p cassandra" "-e CASSANDRA_AUTHENTICATOR=PasswordAuthenticator"
-
-$cli test-connection $CASSANDRA_HOST $CASSANDRA_PORT
+echo ">>>>>>>>>>>>>>>>>>>> TEST CONNECTION: WITH-TLS"
+start-dependencies-tls $image
+# TODO: provide certificate
+$cli test-connection $host
 

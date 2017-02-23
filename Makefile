@@ -1,6 +1,7 @@
 CLI_EXECUTABLE=target/debug/tcc
 DB_IMAGE_OK=.db-image.ok
 DB_IMAGE_NAME=our/cassandra:latest
+DB_PORT=9042
 MAKESHELL=$(shell /usr/bin/env bash)
 
 help:
@@ -10,7 +11,8 @@ help:
 	$(info unit-tests       | Run tests that don't need a cassandra node running)
 	$(info integration-tests| Run tests that use a cassandra node)
 	$(info -- DEBUGGING --------------------------------------------------------------------------------------------------)
-	$(info cli-tests        | Run the cli with certain arguments to help debugging - needs debug-<some>-docker-db)
+	$(info cli-tests        | Run the cli with certain arguments to help debugging - needs <some>-docker-db)
+	$(info tls-tests        | Run cli against a TLS instance - needs tls-docker-db)
 	$(info plain-docker-db  | Bring up a backgrounded cassandra database for local usage on 9042)
 	$(info auth-docker-db   | Bring up a backgrounded cassandra database for local usage on 9042, requiring authentication)
 	$(info tls-docker-db    | Bring up a backgrounded cassandra database for local usage on 9042, requiring TLS)
@@ -30,17 +32,17 @@ integration-tests: $(CLI_EXECUTABLE) $(DB_IMAGE_OK)
 	bin/integration-test.sh $(CLI_EXECUTABLE) $(DB_IMAGE_NAME)
 
 auth-docker-db: $(CLI_EXECUTABLE) $(DB_IMAGE_OK)
-	/usr/bin/env bash -c 'source lib/utilities.sh && start_dependencies $(DB_IMAGE_NAME) 9042 "does not matter" "-e CASSANDRA_AUTHENTICATOR=PasswordAuthenticator"'
+	/usr/bin/env bash -c 'source lib/utilities.sh && start-dependencies-auth $(DB_IMAGE_NAME)'
 
 tls-docker-db: $(CLI_EXECUTABLE) $(DB_IMAGE_OK)
-	/usr/bin/env bash -c 'source lib/utilities.sh && start_dependencies $(DB_IMAGE_NAME) 9042 "does not matter" "-e CASSANDRA_REQUIRE_CLIENT_AUTH=true"'
+	/usr/bin/env bash -c 'source lib/utilities.sh && start-dependencies-tls $(DB_IMAGE_NAME)'
 
 plain-docker-db: $(CLI_EXECUTABLE) $(DB_IMAGE_OK)
-	/usr/bin/env bash -c 'source lib/utilities.sh && start_dependencies $(DB_IMAGE_NAME) 9042 "does not matter"'
+	/usr/bin/env bash -c 'source lib/utilities.sh && start-dependencies-plain $(DB_IMAGE_NAME)'
 
 type ?= plain
 attach-docker-db:
-	DEBUG_RUN_IMAGE=true $(MAKE) debug-$(type)-docker-db
+	DEBUG_RUN_IMAGE=true $(MAKE) $(type)-docker-db
 
 cli-tests:
 	cd cli && cargo run -- test-connection 127.0.0.1 9042
