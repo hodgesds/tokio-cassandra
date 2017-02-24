@@ -41,7 +41,7 @@ EXPOSE 7000 7001 7199 9042 9160
 RUN mkdir /etc/service/cassandra /config
 COPY run.sh /etc/service/cassandra/run
 
-COPY cassandra.yaml /etc/cassandra/
+COPY cassandra.yaml /etc/cassandra/cassandra.yaml
 COPY secrets/keystore.jks /config/keystore
 COPY secrets/truststore.jks /config/truststore
 

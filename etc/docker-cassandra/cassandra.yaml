@@ -785,16 +785,18 @@ server_encryption_options:
     algorithm: SunX509
     # store_type: JKS
     # cipher_suites: [TLS_RSA_WITH_AES_128_CBC_SHA,TLS_RSA_WITH_AES_256_CBC_SHA,TLS_DHE_RSA_WITH_AES_128_CBC_SHA,TLS_DHE_RSA_WITH_AES_256_CBC_SHA,TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA]
+    # this enables TLS for the client, and sets up the server to make it available
     require_client_auth: true
 
 # enable or disable client/server encryption.
 client_encryption_options:
     enabled: true
     # If enabled and optional is set to true encrypted and unencrypted connections are handled.
-    optional: false
+    optional: true
     keystore: /config/keystore
     keystore_password: cassandra
-    require_client_auth: true
+    # this allows us to not show a certificate 
+    require_client_auth: false
     # Set trustore and truststore_password if require_client_auth is true
     truststore: /config/truststore
     truststore_password: cassandra

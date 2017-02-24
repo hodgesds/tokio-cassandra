@@ -71,7 +71,7 @@ if [ $CASSANDRA_ENABLE_SSL = true ]; then
     sed -ri "s|^.*(cipher_suites:).*$|    cipher_suites: [${CASSANDRA_SSL_CIPHER_SUITES}]|" "$CASSANDRA_CONFIG/cassandra.yaml"
   fi
 
-  sed -ri "s|^.*(require_client_auth:).*$|    require_client_auth: ${CASSANDRA_REQUIRE_CLIENT_AUTH}|" "$CASSANDRA_CONFIG/cassandra.yaml"
+  # sed -ri "s|^.*(require_client_auth:).*$|    require_client_auth: ${CASSANDRA_REQUIRE_CLIENT_AUTH}|" "$CASSANDRA_CONFIG/cassandra.yaml"
   sed -ri "s|^    enabled:.*$|    enabled: ${CASSANDRA_REQUIRE_CLIENT_AUTH}|" "$CASSANDRA_CONFIG/cassandra.yaml"
 fi
 
