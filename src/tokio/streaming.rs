@@ -134,6 +134,7 @@ impl Codec for CqlCodec {
                 /* TODO: implement version mismatch test */
                 let code = h.op_code.clone();
                 let version = h.version.version;
+                assert_stream_id(h.stream_id);
                 let msg = Frame::Message {
                     id: h.stream_id as RequestId,
                     /* TODO: verify amount of consumed bytes equals the ones actually parsed */
@@ -155,6 +156,7 @@ impl Codec for CqlCodec {
         match msg {
             Frame::Message { id, message, .. } => {
                 debug!("encoded msg: {:?}", message);
+                assert_stream_id(id as u16);
                 let msg = cql_encode(self.version,
                                      self.flags,
                                      id as u16, /* FIXME safe cast */
@@ -341,4 +343,14 @@ fn send_message<T>(transport: Framed<T, CqlCodec>,
 {
     Box::new(transport.send(SimpleRequest(0, msg).into())
         .and_then(|transport| transport.into_future().map_err(|(e, _)| e)))
+}
+
+fn assert_stream_id(id: u16) {
+    // TODO This should not be an assertion, but just an error to be returned.
+    // The actual goal is to gain control over the domain of our request IDs, which right
+    // now is not present when clients use the service call interface.
+    // This should only be possible if there are more than i16::max_value() requests in flight!
+    assert!(id as i16 > -1,
+            "stream-id {} was negative, which makes it a broadcast id with a special meaning",
+            id);
 }
