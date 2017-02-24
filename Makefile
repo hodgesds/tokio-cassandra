@@ -15,9 +15,9 @@ help:
 	$(info cli-tests        | Run the cli with certain arguments to help debugging - needs <some>-docker-db)
 	$(info secrets          | generate all secrets with default passwords)
 	$(info tls-tests        | Run cli against a TLS instance - needs tls-docker-db)
-	$(info plain-docker-db  | Bring up a backgrounded cassandra database for local usage on 9042)
-	$(info auth-docker-db   | Bring up a backgrounded cassandra database for local usage on 9042, requiring authentication)
-	$(info tls-docker-db    | Bring up a backgrounded cassandra database for local usage on 9042, requiring TLS)
+	$(info plain-docker-db  | Bring up a backgrounded cassandra database for local usage on 9042, optional TLS)
+	$(info auth-docker-db   | Bring up a backgrounded cassandra database for local usage on 9042, optional TLS, requiring authentication)
+	$(info cert-docker-db   | Bring up a backgrounded cassandra database for local usage on 9042, requiring the client to show a certificate)
 	$(info attach-docker-db | run cassandra in foreground run with type=(tls|auth|plain))
 
 toc:
@@ -33,14 +33,14 @@ $(CLI_EXECUTABLE): $(shell find cli -name "*.rs")
 integration-tests: $(CLI_EXECUTABLE) $(DB_IMAGE_OK)
 	bin/integration-test.sh $(CLI_EXECUTABLE) $(DB_IMAGE_NAME)
 
+plain-docker-db: $(DB_IMAGE_OK)
+	/usr/bin/env bash -c 'source lib/utilities.sh && start-dependencies-plain $(DB_IMAGE_NAME)'
+
 auth-docker-db: $(DB_IMAGE_OK)
 	/usr/bin/env bash -c 'source lib/utilities.sh && start-dependencies-auth $(DB_IMAGE_NAME)'
 
-tls-docker-db: $(DB_IMAGE_OK)
-	/usr/bin/env bash -c 'source lib/utilities.sh && start-dependencies-tls $(DB_IMAGE_NAME)'
-
-plain-docker-db: $(DB_IMAGE_OK)
-	/usr/bin/env bash -c 'source lib/utilities.sh && start-dependencies-plain $(DB_IMAGE_NAME)'
+cert-docker-db: $(DB_IMAGE_OK)
+	/usr/bin/env bash -c 'source lib/utilities.sh && start-dependencies-cert $(DB_IMAGE_NAME)'
 
 type ?= plain
 attach-docker-db:

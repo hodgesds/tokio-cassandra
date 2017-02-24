@@ -7,14 +7,17 @@ read -r -d '' ENV_FILE <<EOF
 CASSANDRA_ENABLE_SSL=true
 # turn this on to require SSL in the client. Use the client.cer as certificate,
 # as it is trusted already.
-CASSANDRA_REQUIRE_CLIENT_AUTH=false
+# effectively allow client authentication - optional: true allows both connection types,
+# which is useful for our case as we have to restart the server less often
+CASSANDRA_REQUIRE_CLIENT_AUTH=true
+CASSANDRA_REQUIRE_CLIENT_CERTIFICATE=false
 	CASSANDRA_ENABLE_SSL_DEBUG=true
 	CASSANDRA_KEYSTORE_PASSWORD=cassandra
 	CASSANDRA_TRUSTSTORE_PASSWORD=cassandra
 	CASSANDRA_SSL_PROTOCOL=TLS
 	CASSANDRA_SSL_ALGORITHM=SunX509
     CASSANDRA_KEYSTORE_PATH=/config/keystore
-	CASSANDRA_KEYSTORE_PASSWORD:=cassandra
+	CASSANDRA_KEYSTORE_PASSWORD=cassandra
 	CASSANDRA_TRUSTSTORE_PATH=/config/truststore
 	CASSANDRA_TRUSTSTORE_PASSWORD=cassandra
 CASSANDRA_AUTHENTICATOR=AllowAllAuthenticator
@@ -69,8 +72,8 @@ function start-dependencies-auth () {
 	start-dependencies "$1" test-simple "-e CASSANDRA_AUTHENTICATOR=PasswordAuthenticator"
 }
 
-function start-dependencies-tls () {
-	start-dependencies "$1" test-tls "-e CASSANDRA_REQUIRE_CLIENT_AUTH=true"
+function start-dependencies-cert () {
+	start-dependencies "$1" test-tls "-e CASSANDRA_REQUIRE_CLIENT_CERTIFICATE=true"
 }
 
 stop-dependencies() {

@@ -759,6 +759,7 @@ request_scheduler: org.apache.cassandra.scheduler.NoScheduler
 # the request scheduling. Currently the only valid option is keyspace.
 # request_scheduler_id: keyspace
 
+
 # Enable or disable inter-node encryption
 # Default settings are TLS v1, RSA 1024-bit keys (it is imperative that
 # users generate their own keys) TLS_RSA_WITH_AES_128_CBC_SHA as the cipher
@@ -789,6 +790,7 @@ server_encryption_options:
     require_client_auth: true
 
 # enable or disable client/server encryption.
+# MARKER!!!
 client_encryption_options:
     enabled: true
     # If enabled and optional is set to true encrypted and unencrypted connections are handled.
@@ -796,7 +798,7 @@ client_encryption_options:
     keystore: /config/keystore
     keystore_password: cassandra
     # this allows us to not show a certificate 
-    require_client_auth: false
+    CLIENT_MARKER_require_client_auth: false
     # Set trustore and truststore_password if require_client_auth is true
     truststore: /config/truststore
     truststore_password: cassandra
