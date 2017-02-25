@@ -59,10 +59,9 @@ mod scmds {
         let client = Client {
                 protocol: CqlProto {
                     version: ProtocolVersion::Version3,
-                    credentials: creds,
                 },
             }
-            .connect(&addr, &handle, None);
+            .connect(&addr, &handle, creds);
 //            .and_then(|client| {
 //                // TODO: make client handle creation more ergonomic
 //                // map(EasyClientHanle::into) didn't work

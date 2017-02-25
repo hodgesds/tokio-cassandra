@@ -2,9 +2,9 @@ use codec::request::{self, cql_encode};
 use codec::response;
 use codec::header::{Header, ProtocolVersion, Direction};
 use codec::authentication::{Authenticator, Credentials};
-use codec::primitives::{CqlBytes, CqlFrom, CqlString};
+use codec::primitives::{CqlBytes, CqlFrom};
 use tokio_service::Service;
-use futures::{Sink, Stream, Future};
+use futures::Future;
 use futures::future;
 use tokio_core::reactor::Handle;
 use tokio_proto::util::client_proxy::ClientProxy;
@@ -175,7 +175,6 @@ impl Codec for CqlCodec {
 #[derive(PartialEq, Debug, Clone)]
 pub struct CqlProto {
     pub version: ProtocolVersion,
-    pub credentials: Option<Credentials>,
 }
 
 impl<T: Io + 'static> ClientProto<T> for CqlProto {
@@ -294,6 +293,15 @@ fn interpret_response_and_handle(handle: ClientHandle,
             Box::new(f.and_then(|(res, ch)| interpret_response_and_handle(ch, res, creds))
                 .and_then(|ch| Ok(ch)))
         }
+        response::Message::Authenticate(msg) => {
+            let auth_response = auth_response_from_authenticate(creds.clone(), msg);
+            let f = future::done(auth_response).and_then(move |s| {
+                let f = handle.call(s);
+                f.join(future::ok(handle))
+            });
+            Box::new(f.and_then(|(res, ch)| interpret_response_and_handle(ch, res, creds))
+                .and_then(|ch| Ok(ch)))
+        }
         response::Message::Ready => future::ok(handle).boxed(),
         response::Message::Error(msg) => {
             future::err(io_err(format!("Got Error {}: {:?}", msg.code, msg.text))).boxed()
@@ -305,37 +313,8 @@ fn interpret_response_and_handle(handle: ClientHandle,
                 .boxed()
         }
     }
-    //    Box::new(ftr)
-    //                response::Message::Authenticate(msg) => {
-    //                    let creds =
-    //       creds.ok_or(io_err(format!("No credentials provided but server requires \
-    //                                                   authentication by {}",
-    //                                                  msg.authenticator.as_ref())))?;
-    //
-    //                    let authenticator = Authenticator::from_name(msg.authenticator.as_ref(),
-    //                                                                 creds)
-    //                        .map_err(|err| io_err(format!("Authenticator Err: {}", err)))?;
-    //
-    //                    let mut buf = Vec::new();
-    //                    authenticator.encode_auth_response(&mut buf);
-    //
-    //                    Ok((transport,
-    //                        request::Message::AuthResponse(request::AuthResponseMessage {
-    //                            auth_data: CqlBytes::try_from(buf)
-    //                                .map_err(|err| io_err(format!("Message Err: {}", err)))?,
-    //                        })))
-    //                }
-    //                 TODO: Return a Proper Value saying it has been completed
-    //                response::Message::Ready => Err(io_err("ready not expected")),
-    //                response::Message::Error(msg) => {
-    //                    Err(io_err(format!("Got Error {}: {:?}", msg.code, msg.text)))
-    //                }
-    //                msg => {
-    //                    Err(io_err(format!("Did not expect to receive the following message {:?}",
-    //                                       msg)))
-    //                }
-    //            }
-    //        }))
+
+
 }
 
 fn assert_stream_id(id: u16) {
@@ -360,4 +339,24 @@ fn startup_message_from_supported(msg: response::SupportedMessage) -> io::Result
 
     debug!("startup message generated: {:?}", startup);
     Ok(request::Message::Startup(startup))
+}
+
+fn auth_response_from_authenticate(creds: Option<Credentials>,
+                                   msg: response::AuthenticateMessage)
+                                   -> io::Result<request::Message> {
+    let creds =
+        creds.ok_or(io_err(format!("No credentials provided but server requires authentication \
+                                   by {}",
+                                  msg.authenticator.as_ref())))?;
+
+    let authenticator = Authenticator::from_name(msg.authenticator.as_ref(),
+                                                 creds)
+        .map_err(|err| io_err(format!("Authenticator Err: {}", err)))?;
+
+    let mut buf = Vec::new();
+    authenticator.encode_auth_response(&mut buf);
+
+    Ok(request::Message::AuthResponse(request::AuthResponseMessage {
+        auth_data: CqlBytes::try_from(buf).map_err(|err| io_err(format!("Message Err: {}", err)))?,
+    }))
 }
