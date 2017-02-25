@@ -2,7 +2,7 @@ use codec::request::{self, cql_encode};
 use codec::response;
 use codec::header::{Header, ProtocolVersion, Direction};
 use codec::authentication::{Authenticator, Credentials};
-use codec::primitives::{CqlBytes, CqlFrom};
+use codec::primitives::{CqlBytes, CqlFrom, CqlString};
 use tokio_service::Service;
 use futures::{Sink, Stream, Future};
 use futures::future;
@@ -283,32 +283,44 @@ fn interpret_response_and_handle(handle: ClientHandle,
                                  res: StreamingMessage,
                                  creds: Option<Credentials>)
                                  -> Box<Future<Item = ClientHandle, Error = io::Error>> {
-    Box::new({
-        let res: response::Message = res.into();
-        match res {
-            response::Message::Ready => future::ok(handle),
-            response::Message::Error(msg) => {
-                future::err(io_err(format!("Got Error {}: {:?}", msg.code, msg.text)))
-            }
-            msg => {
-                future::err(io_err(format!("Did not expect to receive the following message {:?}",
-                                           msg)))
-            }
+    let res: response::Message = res.into();
+    match res {
+        response::Message::Supported(msg) => {
+            //                let startup = {
+            //                    request::StartupMessage {
+            //                        cql_version: msg.latest_cql_version()
+            //          .ok_or(io_err("Expected CQL_VERSION to contain at least one version"))?
+            //                           .clone(),
+            //                        compression: None,
+            //                    }
+            //                };
+
+            let startup = request::StartupMessage {
+                cql_version: unsafe { CqlString::unchecked_from("2.7.1") },
+                compression: None,
+            };
+
+            debug!("startup message generated: {:?}", startup);
+
+
+            let startup = request::Message::Startup(startup);
+            let f = handle.call(startup);
+            let f = f.join(future::ok(handle));
+            Box::new(f.and_then(|(res, ch)| interpret_response_and_handle(ch, res, creds))
+                .and_then(|ch| Ok(ch)))
         }
-    })
-    //            let SimpleResponse(_id, res) = response.into();
-    //            match res {
-    //                response::Message::Supported(msg) => {
-    //                    let startup = request::StartupMessage {
-    //                        cql_version: msg.latest_cql_version()
-    //              .ok_or(io_err("Expected CQL_VERSION to contain at least one version"))?
-    //                            .clone(),
-    //                        compression: None,
-    //                    };
-    //                    debug!("startup {:?}", startup);
-    //
-    //                    Ok((handle, request::Message::Startup(startup)))
-    //                }
+        response::Message::Ready => future::ok(handle).boxed(),
+        response::Message::Error(msg) => {
+            future::err(io_err(format!("Got Error {}: {:?}", msg.code, msg.text))).boxed()
+        }
+        msg => {
+            future::err(io_err(format!("Did not expect to receive the following \
+                                                 message {:?}",
+                                       msg)))
+                .boxed()
+        }
+    }
+    //    Box::new(ftr)
     //                response::Message::Authenticate(msg) => {
     //                    let creds =
     //       creds.ok_or(io_err(format!("No credentials provided but server requires \
