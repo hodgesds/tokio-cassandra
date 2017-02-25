@@ -286,26 +286,11 @@ fn interpret_response_and_handle(handle: ClientHandle,
     let res: response::Message = res.into();
     match res {
         response::Message::Supported(msg) => {
-            //                let startup = {
-            //                    request::StartupMessage {
-            //                        cql_version: msg.latest_cql_version()
-            //          .ok_or(io_err("Expected CQL_VERSION to contain at least one version"))?
-            //                           .clone(),
-            //                        compression: None,
-            //                    }
-            //                };
-
-            let startup = request::StartupMessage {
-                cql_version: unsafe { CqlString::unchecked_from("2.7.1") },
-                compression: None,
-            };
-
-            debug!("startup message generated: {:?}", startup);
-
-
-            let startup = request::Message::Startup(startup);
-            let f = handle.call(startup);
-            let f = f.join(future::ok(handle));
+            let startup = startup_message_from_supported(msg);
+            let f = future::done(startup).and_then(move |s| {
+                let f = handle.call(s);
+                f.join(future::ok(handle))
+            });
             Box::new(f.and_then(|(res, ch)| interpret_response_and_handle(ch, res, creds))
                 .and_then(|ch| Ok(ch)))
         }
@@ -361,4 +346,18 @@ fn assert_stream_id(id: u16) {
     assert!(id as i16 > -1,
             "stream-id {} was negative, which makes it a broadcast id with a special meaning",
             id);
+}
+
+fn startup_message_from_supported(msg: response::SupportedMessage) -> io::Result<request::Message> {
+    let startup = {
+        request::StartupMessage {
+            cql_version: msg.latest_cql_version()
+                .ok_or(io_err("Expected CQL_VERSION to contain at least one version"))?
+                .clone(),
+            compression: None,
+        }
+    };
+
+    debug!("startup message generated: {:?}", startup);
+    Ok(request::Message::Startup(startup))
 }
