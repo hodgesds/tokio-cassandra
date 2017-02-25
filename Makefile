@@ -47,7 +47,7 @@ attach-docker-db:
 	DEBUG_RUN_IMAGE=true $(MAKE) $(type)-docker-db
 
 cli-tests:
-	cd cli && cargo run -- test-connection 127.0.0.1 9042
+	cd cli && cargo run -- test-connection -u cassandra -p cassandra 127.0.0.1 9042
 
 secrets:
 	$(MAKE) -C etc/docker-cassandra $@
