@@ -5,6 +5,7 @@ use codec::authentication::{Authenticator, Credentials};
 use codec::primitives::{CqlBytes, CqlFrom};
 use tokio_service::Service;
 use futures::{Sink, Stream, Future};
+use futures::future;
 use tokio_core::reactor::Handle;
 use tokio_proto::util::client_proxy::ClientProxy;
 use tokio_proto::streaming::{Message, Body};
@@ -186,23 +187,11 @@ impl<T: Io + 'static> ClientProto<T> for CqlProto {
 
     /// `Framed<T, LineCodec>` is the return value of `io.framed(LineCodec)`
     type Transport = Framed<T, CqlCodec>;
-    type BindTransport = Box<Future<Item = Self::Transport, Error = io::Error>>;
+    type BindTransport = Result<Self::Transport, io::Error>;
 
     fn bind_transport(&self, io: T) -> Self::BindTransport {
         debug!("binding transport!");
-        let transport = io.framed(CqlCodec::new(self.version));
-        let creds = self.credentials.clone();
-        let creds2 = self.credentials.clone();
-        let creds3 = self.credentials.clone();
-        // TODO: Implement a Done / Needed Enum to run Handshake until getting Ready
-        let handshake = send_message(transport, request::Message::Options)
-            .and_then(|(res, transport)| interpret_response(transport, res, creds))
-            .and_then(|(transport, msg)| send_message(transport, msg))
-            .and_then(|(res, transport)| interpret_response(transport, res, creds2))
-            .and_then(|(transport, msg)| send_message(transport, msg))
-            .and_then(|(res, transport)| interpret_response(transport, res, creds3))
-            .and_then(|(transport, _res)| Ok(transport));
-        Box::new(handshake)
+        Ok(io.framed(CqlCodec::new(self.version)))
     }
 }
 
@@ -245,11 +234,19 @@ pub struct Client {
 impl Client {
     pub fn connect(self,
                    addr: &SocketAddr,
-                   handle: &Handle)
+                   handle: &Handle,
+                   creds: Option<Credentials>)
                    -> Box<Future<Item = ClientHandle, Error = io::Error>> {
         let ret = TcpClient::new(self.protocol)
             .connect(addr, handle)
-            .map(|client_proxy| ClientHandle { inner: client_proxy });
+            .map(|client_proxy| ClientHandle { inner: client_proxy })
+            .and_then(|client_handle| {
+                let f = client_handle.call(request::Message::Options);
+                f.join(future::ok(client_handle))
+            })
+            .and_then(|(res, ch)| interpret_response_and_handle(ch, res, creds))
+            .and_then(|ch| Ok(ch));
+
         Box::new(ret)
     }
 }
@@ -282,67 +279,66 @@ impl From<SimpleRequest> for CodecOutputFrame {
 pub struct SimpleResponse(pub RequestId, pub response::Message);
 pub struct SimpleRequest(pub RequestId, pub request::Message);
 
-fn interpret_response<T>(transport: Framed<T, CqlCodec>,
-                         res: Option<CodecInputFrame>,
-                         creds: Option<Credentials>)
-                         -> io::Result<(Framed<T, CqlCodec>, request::Message)>
-    where T: Io + 'static
-{
-    res.ok_or_else(|| io_err("No reply received upon 'OPTIONS' message"))
-        .and_then(|response| {
-            let SimpleResponse(_id, res) = response.into();
-            match res {
-                response::Message::Supported(msg) => {
-                    let startup = request::StartupMessage {
-                        cql_version: msg.latest_cql_version()
-                            .ok_or(io_err("Expected CQL_VERSION to contain at least one version"))?
-                            .clone(),
-                        compression: None,
-                    };
-                    debug!("startup {:?}", startup);
-
-                    Ok((transport, request::Message::Startup(startup)))
-                }
-                response::Message::Authenticate(msg) => {
-                    let creds =
-                        creds.ok_or(io_err(format!("No credentials provided but server requires \
-                                                   authentication by {}",
-                                                  msg.authenticator.as_ref())))?;
-
-                    let authenticator = Authenticator::from_name(msg.authenticator.as_ref(),
-                                                                 creds)
-                        .map_err(|err| io_err(format!("Authenticator Err: {}", err)))?;
-
-                    let mut buf = Vec::new();
-                    authenticator.encode_auth_response(&mut buf);
-
-                    Ok((transport,
-                        request::Message::AuthResponse(request::AuthResponseMessage {
-                            auth_data: CqlBytes::try_from(buf)
-                                .map_err(|err| io_err(format!("Message Err: {}", err)))?,
-                        })))
-                }
-                // TODO: Return a Proper Value saying it has been completed
-                response::Message::Ready => Err(io_err("ready not expected")),
-                response::Message::Error(msg) => {
-                    Err(io_err(format!("Got Error {}: {:?}", msg.code, msg.text)))
-                }
-                msg => {
-                    Err(io_err(format!("Did not expect to receive the following message {:?}",
-                                       msg)))
-                }
+fn interpret_response_and_handle(handle: ClientHandle,
+                                 res: StreamingMessage,
+                                 creds: Option<Credentials>)
+                                 -> Box<Future<Item = ClientHandle, Error = io::Error>> {
+    Box::new({
+        let res: response::Message = res.into();
+        match res {
+            response::Message::Ready => future::ok(handle),
+            response::Message::Error(msg) => {
+                future::err(io_err(format!("Got Error {}: {:?}", msg.code, msg.text)))
             }
-        })
-}
-
-fn send_message<T>(transport: Framed<T, CqlCodec>,
-                   msg: request::Message)
-                   -> Box<Future<Error = io::Error,
-                       Item = (Option<CodecInputFrame>, Framed<T, CqlCodec>)> + 'static>
-    where T: Io + 'static
-{
-    Box::new(transport.send(SimpleRequest(0, msg).into())
-        .and_then(|transport| transport.into_future().map_err(|(e, _)| e)))
+            msg => {
+                future::err(io_err(format!("Did not expect to receive the following message {:?}",
+                                           msg)))
+            }
+        }
+    })
+    //            let SimpleResponse(_id, res) = response.into();
+    //            match res {
+    //                response::Message::Supported(msg) => {
+    //                    let startup = request::StartupMessage {
+    //                        cql_version: msg.latest_cql_version()
+    //              .ok_or(io_err("Expected CQL_VERSION to contain at least one version"))?
+    //                            .clone(),
+    //                        compression: None,
+    //                    };
+    //                    debug!("startup {:?}", startup);
+    //
+    //                    Ok((handle, request::Message::Startup(startup)))
+    //                }
+    //                response::Message::Authenticate(msg) => {
+    //                    let creds =
+    //       creds.ok_or(io_err(format!("No credentials provided but server requires \
+    //                                                   authentication by {}",
+    //                                                  msg.authenticator.as_ref())))?;
+    //
+    //                    let authenticator = Authenticator::from_name(msg.authenticator.as_ref(),
+    //                                                                 creds)
+    //                        .map_err(|err| io_err(format!("Authenticator Err: {}", err)))?;
+    //
+    //                    let mut buf = Vec::new();
+    //                    authenticator.encode_auth_response(&mut buf);
+    //
+    //                    Ok((transport,
+    //                        request::Message::AuthResponse(request::AuthResponseMessage {
+    //                            auth_data: CqlBytes::try_from(buf)
+    //                                .map_err(|err| io_err(format!("Message Err: {}", err)))?,
+    //                        })))
+    //                }
+    //                 TODO: Return a Proper Value saying it has been completed
+    //                response::Message::Ready => Err(io_err("ready not expected")),
+    //                response::Message::Error(msg) => {
+    //                    Err(io_err(format!("Got Error {}: {:?}", msg.code, msg.text)))
+    //                }
+    //                msg => {
+    //                    Err(io_err(format!("Did not expect to receive the following message {:?}",
+    //                                       msg)))
+    //                }
+    //            }
+    //        }))
 }
 
 fn assert_stream_id(id: u16) {

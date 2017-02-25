@@ -62,13 +62,13 @@ mod scmds {
                     credentials: creds,
                 },
             }
-            .connect(&addr, &handle)
-            .and_then(|client| {
-                // TODO: make client handle creation more ergonomic
-                // map(EasyClientHanle::into) didn't work
-                let client: EasyClientHandle = client.into();
-                client.call(request::Message::Options)
-            });
+            .connect(&addr, &handle, None);
+//            .and_then(|client| {
+//                // TODO: make client handle creation more ergonomic
+//                // map(EasyClientHanle::into) didn't work
+//                let client: EasyClientHandle = client.into();
+//                client.call(request::Message::Options)
+//            });
 
         core.run(client)
             .chain_err(|| format!("Failed to connect to {}:{}", host, port))
