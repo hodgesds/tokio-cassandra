@@ -303,15 +303,19 @@ fn interpret_response_and_handle(handle: ClientHandle,
                 .and_then(|ch| Ok(ch)))
         }
         response::Message::Ready => future::ok(handle).boxed(),
+        response::Message::AuthSuccess(msg) => {
+            debug!("Authentication Succeded: {:?}", msg);
+            future::ok(handle).boxed()
+        }
         response::Message::Error(msg) => {
             future::err(io_err(format!("Got Error {}: {:?}", msg.code, msg.text))).boxed()
         }
-        msg => {
-            future::err(io_err(format!("Did not expect to receive the following \
-                                                 message {:?}",
-                                       msg)))
-                .boxed()
-        }
+        //        msg => {
+        //            future::err(io_err(format!("Did not expect to receive the following \
+        //                                                 message {:?}",
+        //                                       msg)))
+        //                .boxed()
+        //        }
     }
 
 
