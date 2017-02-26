@@ -18,8 +18,11 @@ use super::utils::{io_err, decode_complete_message_by_opcode};
 
 error_chain!{
     errors{
-        CqlError
-        HandshakeError
+        CqlError(code: i32, msg: String) {
+            description("Cql error message from server")
+            display("CQL Server Error({}): {}", code, msg)
+        }
+        HandshakeError(msg: String)
     }
 
     foreign_links{
@@ -320,7 +323,7 @@ fn interpret_response_and_handle(handle: ClientHandle,
             future::ok(handle).boxed()
         }
         response::Message::Error(msg) => {
-            future::err(io_err(format!("Got Error {}: {:?}", msg.code, msg.text)).into()).boxed()
+            future::err(ErrorKind::CqlError(msg.code, msg.text.into()).into()).boxed()
         }
         //        msg => {
         //            future::err(io_err(format!("Did not expect to receive the following \
@@ -347,7 +350,9 @@ fn startup_message_from_supported(msg: response::SupportedMessage) -> Result<req
     let startup = {
         request::StartupMessage {
             cql_version: msg.latest_cql_version()
-                .ok_or(io_err("Expected CQL_VERSION to contain at least one version"))?
+                .ok_or(ErrorKind::HandshakeError("Expected CQL_VERSION to contain at least one \
+                                                  version"
+                    .into()))?
                 .clone(),
             compression: None,
         }
@@ -361,18 +366,18 @@ fn auth_response_from_authenticate(creds: Option<Credentials>,
                                    msg: response::AuthenticateMessage)
                                    -> Result<request::Message> {
     let creds =
-        creds.ok_or(io_err(format!("No credentials provided but server requires authentication \
-                                   by {}",
-                                  msg.authenticator.as_ref())))?;
+        creds.ok_or(ErrorKind::HandshakeError(format!("No credentials provided but server \
+                                                      requires authentication by {}",
+                                                     msg.authenticator.as_ref())))?;
 
     let authenticator = Authenticator::from_name(msg.authenticator.as_ref(),
                                                  creds)
-        .map_err(|err| io_err(format!("Authenticator Err: {}", err)))?;
+        .chain_err(|| "Authenticator Err")?;
 
     let mut buf = Vec::new();
     authenticator.encode_auth_response(&mut buf);
 
     Ok(request::Message::AuthResponse(request::AuthResponseMessage {
-        auth_data: CqlBytes::try_from(buf).map_err(|err| io_err(format!("Message Err: {}", err)))?,
+        auth_data: CqlBytes::try_from(buf).chain_err(|| "Message Err")?,
     }))
 }

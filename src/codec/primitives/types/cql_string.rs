@@ -26,6 +26,14 @@ impl<T> AsRef<str> for CqlString<T>
     }
 }
 
+impl<T> Into<String> for CqlString<T>
+    where T: AsRef<[u8]>
+{
+    fn into(self) -> String {
+        String::from(self.as_ref())
+    }
+}
+
 
 impl<T> Hash for CqlString<T>
     where T: AsRef<[u8]>
