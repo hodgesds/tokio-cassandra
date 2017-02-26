@@ -34,7 +34,7 @@ A Cassandra Native Protocol 3 implementation using Tokio for IO.
 ## [Commandline Interface](https://github.com/nhellwig/tokio-cassandra/projects/1)
 * **test-connection**
   * [x] unauthenticated
-  * [ ] authenticated
+  * [x] authenticated
   * [ ] with-TLS
   * [ ] choice of cql version to use
   * [ ] choice of which protocol version to use
