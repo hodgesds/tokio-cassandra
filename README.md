@@ -55,7 +55,7 @@ A Cassandra Native Protocol 3 implementation using Tokio for IO.
   * [ ] [encryption via TLS](https://github.com/nhellwig/tokio-cassandra/issues/5)
 * **Connection**
   * [x] unauthenticated
-  * [ ] [authenticated](https://github.com/nhellwig/tokio-cassandra/issues/7)
+  * [x] [authenticated](https://github.com/nhellwig/tokio-cassandra/issues/7)
 * **Codec V3**
   * [x] frame-header
   * **Message Data Types (MDT)**
@@ -78,7 +78,7 @@ A Cassandra Native Protocol 3 implementation using Tokio for IO.
       * [ ] LZ4
     * **Requests**
       * [x] Startup
-      * [ ] Auth-Response
+      * [x] Auth-Response
       * [x] Options
       * [ ] Query
       * [ ] Prepare
@@ -88,11 +88,11 @@ A Cassandra Native Protocol 3 implementation using Tokio for IO.
     * **Responses**
       * [ ] Error
       * [x] Ready
-      * [ ] Authenticate
+      * [x] Authenticate
       * [x] Supported
       * [ ] Event
       * [ ] Auth-Challenge
-      * [ ] Auth-Success
+      * [x] Auth-Success
       * **Result**
         * [ ] Void
         * [ ] Rows
