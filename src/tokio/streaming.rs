@@ -16,6 +16,17 @@ use std::{io, mem};
 use std::net::SocketAddr;
 use super::utils::{io_err, decode_complete_message_by_opcode};
 
+error_chain!{
+    errors{
+        CqlError
+        HandshakeError
+    }
+
+    foreign_links{
+        IoErr(::std::io::Error);
+    }
+}
+
 /// A chunk of a result - similar to response::ResultMessage, but only a chunk of it
 /// TODO: this is just a dummy to show the intent - this is likely to change
 #[derive(Debug)]
@@ -105,7 +116,7 @@ type CodecOutputFrame = Frame<request::Message, request::Message, io::Error>;
 impl Codec for CqlCodec {
     type In = CodecInputFrame;
     type Out = CodecOutputFrame;
-    fn decode(&mut self, buf: &mut EasyBuf) -> Result<Option<Self::In>, io::Error> {
+    fn decode(&mut self, buf: &mut EasyBuf) -> io::Result<Option<Self::In>> {
         use self::Machine::*;
         match self.state {
             NeedHeader => {
@@ -186,7 +197,7 @@ impl<T: Io + 'static> ClientProto<T> for CqlProto {
 
     /// `Framed<T, LineCodec>` is the return value of `io.framed(LineCodec)`
     type Transport = Framed<T, CqlCodec>;
-    type BindTransport = Result<Self::Transport, io::Error>;
+    type BindTransport = io::Result<Self::Transport>;
 
     fn bind_transport(&self, io: T) -> Self::BindTransport {
         debug!("binding transport!");
@@ -235,7 +246,7 @@ impl Client {
                    addr: &SocketAddr,
                    handle: &Handle,
                    creds: Option<Credentials>)
-                   -> Box<Future<Item = ClientHandle, Error = io::Error>> {
+                   -> Box<Future<Item = ClientHandle, Error = self::Error>> {
         let ret = TcpClient::new(self.protocol)
             .connect(addr, handle)
             .map(|client_proxy| ClientHandle { inner: client_proxy })
@@ -243,6 +254,7 @@ impl Client {
                 let f = client_handle.call(request::Message::Options);
                 f.join(future::ok(client_handle))
             })
+            .map_err(|e| e.into())
             .and_then(|(res, ch)| interpret_response_and_handle(ch, res, creds))
             .and_then(|ch| Ok(ch));
 
@@ -281,13 +293,13 @@ pub struct SimpleRequest(pub RequestId, pub request::Message);
 fn interpret_response_and_handle(handle: ClientHandle,
                                  res: StreamingMessage,
                                  creds: Option<Credentials>)
-                                 -> Box<Future<Item = ClientHandle, Error = io::Error>> {
+                                 -> Box<Future<Item = ClientHandle, Error = self::Error>> {
     let res: response::Message = res.into();
     match res {
         response::Message::Supported(msg) => {
             let startup = startup_message_from_supported(msg);
             let f = future::done(startup).and_then(move |s| {
-                let f = handle.call(s);
+                let f = handle.call(s).map_err(|e| e.into());
                 f.join(future::ok(handle))
             });
             Box::new(f.and_then(|(res, ch)| interpret_response_and_handle(ch, res, creds))
@@ -296,7 +308,7 @@ fn interpret_response_and_handle(handle: ClientHandle,
         response::Message::Authenticate(msg) => {
             let auth_response = auth_response_from_authenticate(creds.clone(), msg);
             let f = future::done(auth_response).and_then(move |s| {
-                let f = handle.call(s);
+                let f = handle.call(s).map_err(|e| e.into());
                 f.join(future::ok(handle))
             });
             Box::new(f.and_then(|(res, ch)| interpret_response_and_handle(ch, res, creds))
@@ -308,7 +320,7 @@ fn interpret_response_and_handle(handle: ClientHandle,
             future::ok(handle).boxed()
         }
         response::Message::Error(msg) => {
-            future::err(io_err(format!("Got Error {}: {:?}", msg.code, msg.text))).boxed()
+            future::err(io_err(format!("Got Error {}: {:?}", msg.code, msg.text)).into()).boxed()
         }
         //        msg => {
         //            future::err(io_err(format!("Did not expect to receive the following \
@@ -331,7 +343,7 @@ fn assert_stream_id(id: u16) {
             id);
 }
 
-fn startup_message_from_supported(msg: response::SupportedMessage) -> io::Result<request::Message> {
+fn startup_message_from_supported(msg: response::SupportedMessage) -> Result<request::Message> {
     let startup = {
         request::StartupMessage {
             cql_version: msg.latest_cql_version()
@@ -347,7 +359,7 @@ fn startup_message_from_supported(msg: response::SupportedMessage) -> io::Result
 
 fn auth_response_from_authenticate(creds: Option<Credentials>,
                                    msg: response::AuthenticateMessage)
-                                   -> io::Result<request::Message> {
+                                   -> Result<request::Message> {
     let creds =
         creds.ok_or(io_err(format!("No credentials provided but server requires authentication \
                                    by {}",

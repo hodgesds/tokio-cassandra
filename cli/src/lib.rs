@@ -25,14 +25,10 @@ pub mod errors {
 mod scmds {
     use clap;
     use super::errors::*;
-    use futures::Future;
     use tokio_cassandra::streaming::{CqlProto, Client};
-    use tokio_cassandra::EasyClientHandle;
-    use tokio_cassandra::codec::request;
     use tokio_cassandra::codec::authentication::Credentials;
     use tokio_cassandra::codec::header::ProtocolVersion;
     use tokio_core::reactor::Core;
-    use tokio_service::Service;
 
     pub fn test_connection(args: &clap::ArgMatches) -> Result<()> {
         let host = args.value_of("host").expect("clap to work");
