@@ -254,8 +254,7 @@ impl Client {
             .connect(addr, handle)
             .map(|client_proxy| ClientHandle { inner: client_proxy })
             .and_then(|client_handle| {
-                let f = client_handle.call(request::Message::Options);
-                f.join(future::ok(client_handle))
+                client_handle.call(request::Message::Options).map(|r| (r, client_handle))
             })
             .map_err(|e| e.into())
             .and_then(|(res, ch)| interpret_response_and_handle(ch, res, creds))
@@ -301,19 +300,15 @@ fn interpret_response_and_handle(handle: ClientHandle,
     match res {
         response::Message::Supported(msg) => {
             let startup = startup_message_from_supported(msg);
-            let f = future::done(startup).and_then(move |s| {
-                let f = handle.call(s).map_err(|e| e.into());
-                f.join(future::ok(handle))
-            });
+            let f = future::done(startup)
+                .and_then(|s| handle.call(s).map_err(|e| e.into()).map(|r| (r, handle)));
             Box::new(f.and_then(|(res, ch)| interpret_response_and_handle(ch, res, creds))
                 .and_then(|ch| Ok(ch)))
         }
         response::Message::Authenticate(msg) => {
             let auth_response = auth_response_from_authenticate(creds.clone(), msg);
-            let f = future::done(auth_response).and_then(move |s| {
-                let f = handle.call(s).map_err(|e| e.into());
-                f.join(future::ok(handle))
-            });
+            let f = future::done(auth_response)
+                .and_then(|s| handle.call(s).map_err(|e| e.into()).map(|r| (r, handle)));
             Box::new(f.and_then(|(res, ch)| interpret_response_and_handle(ch, res, creds))
                 .and_then(|ch| Ok(ch)))
         }

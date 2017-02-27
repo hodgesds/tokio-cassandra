@@ -7,7 +7,6 @@ source "$(dirname $0)/../lib/utilities.sh"
 
 # More verbosity on travis for now
 [ -n "$TRAVIS" ] && set -x
-curl --version
 
 set -eu
 port=$CASSANDRA_PORT
