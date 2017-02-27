@@ -11,6 +11,9 @@ pub use self::cql_long_string::*;
 mod cql_bytes;
 pub use self::cql_bytes::*;
 
+mod cql_consistency;
+pub use self::cql_consistency::*;
+
 mod collections;
 pub use self::collections::*;
 

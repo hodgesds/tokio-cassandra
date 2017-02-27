@@ -1,7 +1,7 @@
 use codec::header::{ProtocolVersion, OpCode, Header, Version};
 use std::collections::HashMap;
 
-use codec::primitives::{CqlStringMap, CqlString, CqlBytes};
+use codec::primitives::{CqlStringMap, CqlString, CqlBytes, CqlLongString};
 use codec::primitives::encode;
 
 error_chain! {
@@ -29,6 +29,7 @@ pub enum Message {
     Options,
     Startup(StartupMessage),
     AuthResponse(AuthResponseMessage),
+    Query(QueryMessage),
 }
 
 use tokio_core::io::EasyBuf;
@@ -71,6 +72,19 @@ impl CqlEncode for AuthResponseMessage {
     }
 }
 
+#[derive(Debug)]
+pub struct QueryMessage {
+    pub query: CqlLongString<EasyBuf>,
+}
+
+impl CqlEncode for QueryMessage {
+    fn encode(&self, _v: ProtocolVersion, buf: &mut Vec<u8>) -> Result<usize> {
+        let l = buf.len();
+        encode::long_string(&self.query, buf);
+        Ok(buf.len() - l)
+    }
+}
+
 impl Message {
     fn opcode(&self) -> OpCode {
         use self::Message::*;
@@ -78,11 +92,11 @@ impl Message {
             &Options => OpCode::Options,
             &Startup(_) => OpCode::Startup,
             &AuthResponse(_) => OpCode::AuthResponse,
+            &Query(_) => OpCode::Query,
         }
 
     }
 }
-
 
 impl CqlEncode for Message {
     fn encode(&self, v: ProtocolVersion, buf: &mut Vec<u8>) -> Result<usize> {
@@ -91,6 +105,7 @@ impl CqlEncode for Message {
             Message::Options => Ok(0),
             Message::Startup(ref msg) => msg.encode(v, buf),
             Message::AuthResponse(ref msg) => msg.encode(v, buf),
+            Message::Query(ref msg) => msg.encode(v, buf),
         }
     }
 }
@@ -186,6 +201,23 @@ mod test {
 
         let expected_bytes = include_bytes!("../../tests/fixtures/v3/requests/auth_response.msg");
 
+        assert_eq!(&buf[..], &expected_bytes[..]);
+    }
+
+//    #[test] TODO: enable later when query is more advanced
+    fn from_query_req() {
+        let mut buf = Vec::new();
+        let flags = 0;
+        let stream_id = 2;
+
+        let o = Message::Query(QueryMessage {
+            query: CqlLongString::try_from("select * from system.local where key = 'local'")
+                .unwrap(),
+        });
+
+        cql_encode(Version3, flags, stream_id, o, &mut buf).unwrap();
+
+        let expected_bytes = include_bytes!("../../tests/fixtures/v3/requests/cli_query.msg");
         assert_eq!(&buf[..], &expected_bytes[..]);
     }
 }
