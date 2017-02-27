@@ -5,10 +5,12 @@ use std::marker::PhantomData;
 
 use tokio_proto::BindClient;
 use tokio_core::reactor::Handle;
-use tokio_core::net::{TcpStream, TcpStreamNew};
+use tokio_core::net::TcpStream;
+use tokio_openssl::{SslStream, SslConnectorExt};
 use futures::{Future, Poll, Async};
+use openssl::ssl::{SslMethod, SslConnectorBuilder};
 
-pub struct TcpClient<Kind, P> {
+pub struct SslClient<Kind, P> {
     _kind: PhantomData<Kind>,
     proto: Arc<P>,
 }
@@ -16,27 +18,28 @@ pub struct TcpClient<Kind, P> {
 pub struct Connect<Kind, P> {
     _kind: PhantomData<Kind>,
     proto: Arc<P>,
-    socket: TcpStreamNew,
+    socket: Box<Future<Item = SslStream<TcpStream>, Error = io::Error>>,
     handle: Handle,
 }
 
 impl<Kind, P> Future for Connect<Kind, P>
-    where P: BindClient<Kind, TcpStream>
+    where P: BindClient<Kind, SslStream<TcpStream>>
 {
     type Item = P::BindClient;
     type Error = io::Error;
 
     fn poll(&mut self) -> Poll<P::BindClient, io::Error> {
-        let socket = try_ready!(self.socket.poll());
+        let socket =
+            try_ready!(self.socket.poll().map_err(|e| io::Error::new(io::ErrorKind::Other, e)));
         Ok(Async::Ready(self.proto.bind_client(&self.handle, socket)))
     }
 }
 
-impl<Kind, P> TcpClient<Kind, P>
-    where P: BindClient<Kind, TcpStream>
+impl<Kind, P> SslClient<Kind, P>
+    where P: BindClient<Kind, SslStream<TcpStream>>
 {
-    pub fn new(protocol: P) -> TcpClient<Kind, P> {
-        TcpClient {
+    pub fn new(protocol: P) -> SslClient<Kind, P> {
+        SslClient {
             _kind: PhantomData,
             proto: Arc::new(protocol),
         }
@@ -46,7 +49,13 @@ impl<Kind, P> TcpClient<Kind, P>
         Connect {
             _kind: PhantomData,
             proto: self.proto.clone(),
-            socket: TcpStream::connect(addr, handle),
+            socket: {
+                Box::new(TcpStream::connect(addr, handle).and_then(|stream| {
+                    let connector = SslConnectorBuilder::new(SslMethod::tls()).unwrap().build();
+                    connector.connect_async("google", stream)
+                        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+                }))
+            },
             handle: handle.clone(),
         }
     }
