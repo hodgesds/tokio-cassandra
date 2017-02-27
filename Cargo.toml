@@ -19,6 +19,14 @@ tokio-core = "0.1"
 tokio-proto = "0.1"
 tokio-service = "0.1"
 
+[dependencies.tokio-openssl]
+optional = true
+version = "0.1"
+
+[dependencies.openssl]
+optional = true
+version = "0.9"
+
 [dependencies.serde]
 optional = true
 version = "0.9"
@@ -30,6 +38,7 @@ version = "0.9"
 [features]
 default_features = []
 with-serde = ["serde_derive", "serde"]
+ssl = ["tokio-openssl", "openssl"]
 
 [replace]
 
