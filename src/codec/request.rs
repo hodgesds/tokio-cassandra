@@ -1,7 +1,7 @@
 use codec::header::{ProtocolVersion, OpCode, Header, Version};
 use std::collections::HashMap;
 
-use codec::primitives::{CqlStringMap, CqlString, CqlBytes, CqlLongString};
+use codec::primitives::{CqlConsistency, CqlStringMap, CqlString, CqlBytes, CqlLongString};
 use codec::primitives::encode;
 
 error_chain! {
@@ -72,15 +72,40 @@ impl CqlEncode for AuthResponseMessage {
     }
 }
 
+// TODO: test this
+#[derive(Debug)]
+pub enum QueryValues {
+    Positional(Vec<CqlBytes<EasyBuf>>),
+    Named(HashMap<CqlString<EasyBuf>, CqlBytes<EasyBuf>>),
+}
+
+// TODO: test this
 #[derive(Debug)]
 pub struct QueryMessage {
     pub query: CqlLongString<EasyBuf>,
+    pub values: Option<QueryValues>,
+    pub consistency: CqlConsistency,
+    pub skip_metadata: bool,
+    pub page_size: Option<i32>,
+    pub paging_state: Option<CqlBytes<EasyBuf>>,
+    pub serial_consistency: Option<CqlConsistency>,
+    pub timestamp: Option<i64>,
 }
 
 impl CqlEncode for QueryMessage {
     fn encode(&self, _v: ProtocolVersion, buf: &mut Vec<u8>) -> Result<usize> {
         let l = buf.len();
         encode::long_string(&self.query, buf);
+        buf.extend(&encode::consistency(&self.consistency)[..]);
+
+        // TODO: real flag encoding
+        let mut x = 0x24;
+        buf.push(x);
+
+        // TODO: handling of optionals
+        buf.extend(&encode::int(self.page_size.unwrap())[..]);
+        buf.extend(&encode::long(self.timestamp.unwrap())[..]);
+
         Ok(buf.len() - l)
     }
 }
@@ -144,7 +169,7 @@ pub fn cql_encode(version: ProtocolVersion,
 mod test {
     use super::*;
     use codec::header::ProtocolVersion::*;
-    use codec::primitives::CqlFrom;
+    use codec::primitives::{CqlConsistency, CqlFrom};
     use codec::authentication::Authenticator;
 
     #[test]
@@ -204,15 +229,23 @@ mod test {
         assert_eq!(&buf[..], &expected_bytes[..]);
     }
 
-//    #[test] TODO: enable later when query is more advanced
+    #[test]
     fn from_query_req() {
         let mut buf = Vec::new();
         let flags = 0;
         let stream_id = 2;
 
+
         let o = Message::Query(QueryMessage {
             query: CqlLongString::try_from("select * from system.local where key = 'local'")
                 .unwrap(),
+            values: None,
+            consistency: CqlConsistency::ONE,
+            skip_metadata: false,
+            page_size: Some(5000),
+            paging_state: None,
+            serial_consistency: None,
+            timestamp: Some(1486294317376770),
         });
 
         cql_encode(Version3, flags, stream_id, o, &mut buf).unwrap();

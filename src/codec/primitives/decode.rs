@@ -1,5 +1,5 @@
 use codec::primitives::types::{CqlStringList, CqlString, CqlLongString, CqlStringMap,
-                               CqlStringMultiMap, CqlBytes, Consistency};
+                               CqlStringMultiMap, CqlBytes, CqlConsistency};
 use std::collections::HashMap;
 use tokio_core::io::EasyBuf;
 use byteorder::{ByteOrder, BigEndian};
@@ -132,13 +132,13 @@ pub fn string_multimap(i: EasyBuf) -> ParseResult<CqlStringMultiMap<EasyBuf>> {
     Ok((buf, unsafe { CqlStringMultiMap::unchecked_from(map) }))
 }
 
-pub fn consistency(mut i: EasyBuf) -> ParseResult<Consistency> {
+pub fn consistency(mut i: EasyBuf) -> ParseResult<CqlConsistency> {
     if i.len() < 2 {
         return Err(Incomplete(Size(2)));
     }
     let databuf = i.drain_to(2);
     let short = BigEndian::read_u16(databuf.as_slice());
-    let c = Consistency::try_from(short).map_err(|e| ParseError(format!("{}", e)))?;
+    let c = CqlConsistency::try_from(short).map_err(|e| ParseError(format!("{}", e)))?;
     Ok((i, c))
 }
 

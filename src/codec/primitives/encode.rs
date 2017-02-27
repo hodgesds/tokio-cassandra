@@ -1,6 +1,6 @@
 use byteorder::{ByteOrder, BigEndian};
 use super::{CqlStringList, CqlLongString, CqlString, CqlBytes, CqlStringMap, CqlStringMultiMap,
-            Consistency};
+            CqlConsistency};
 
 pub fn short(v: u16) -> [u8; 2] {
     let mut bytes = [0u8; 2];
@@ -72,7 +72,7 @@ pub fn string_multimap<T>(m: &CqlStringMultiMap<T>, buf: &mut Vec<u8>)
     }
 }
 
-pub fn consistency(v: &Consistency) -> [u8; 2] {
+pub fn consistency(v: &CqlConsistency) -> [u8; 2] {
     let mut bytes = [0u8; 2];
     BigEndian::write_u16(&mut bytes[..], v.as_short());
     bytes

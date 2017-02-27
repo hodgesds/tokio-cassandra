@@ -1,7 +1,7 @@
 use super::*;
 
 #[derive(Debug, PartialEq, Eq)]
-pub enum Consistency {
+pub enum CqlConsistency {
     ANY,
     ONE,
     TWO,
@@ -15,26 +15,26 @@ pub enum Consistency {
     LOCAL_ONE,
 }
 
-impl Consistency {
-    pub fn try_from(short: u16) -> Result<Consistency> {
+impl CqlConsistency {
+    pub fn try_from(short: u16) -> Result<CqlConsistency> {
         Ok(match short {
-            0x0000 => Consistency::ANY,
-            0x0001 => Consistency::ONE,
-            0x0002 => Consistency::TWO,
-            0x0003 => Consistency::THREE,
-            0x0004 => Consistency::QUORUM,
-            0x0005 => Consistency::ALL,
-            0x0006 => Consistency::LOCAL_QUORUM,
-            0x0007 => Consistency::EACH_QUORUM,
-            0x0008 => Consistency::SERIAL,
-            0x0009 => Consistency::LOCAL_SERIAL,
-            0x000A => Consistency::LOCAL_ONE,
+            0x0000 => CqlConsistency::ANY,
+            0x0001 => CqlConsistency::ONE,
+            0x0002 => CqlConsistency::TWO,
+            0x0003 => CqlConsistency::THREE,
+            0x0004 => CqlConsistency::QUORUM,
+            0x0005 => CqlConsistency::ALL,
+            0x0006 => CqlConsistency::LOCAL_QUORUM,
+            0x0007 => CqlConsistency::EACH_QUORUM,
+            0x0008 => CqlConsistency::SERIAL,
+            0x0009 => CqlConsistency::LOCAL_SERIAL,
+            0x000A => CqlConsistency::LOCAL_ONE,
             _ => return Err("Unknown Consistency".into()),
         })
     }
 
     pub fn as_short(&self) -> u16 {
-        use self::Consistency::*;
+        use self::CqlConsistency::*;
         match *self {
             ANY => 0x0000,
             ONE => 0x0001,
@@ -59,7 +59,7 @@ mod test {
 
     #[test]
     fn consistency() {
-        let c = Consistency::ANY;
+        let c = CqlConsistency::ANY;
         let buf = encode::consistency(&c);
         let buf = Vec::from(&buf[..]).into();
 
