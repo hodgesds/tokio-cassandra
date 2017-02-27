@@ -29,8 +29,9 @@ $cli test-connection $host $port
 
 # TODO auth + TLS
 
-echo ">>>>>>>>>>>>>>>>>>>> TEST CONNECTION: WITH-CERTIFICATE"
-start-dependencies-cert $image
+# echo ">>>>>>>>>>>>>>>>>>>> TEST CONNECTION: WITH-CERTIFICATE"
+# Fix https://github.com/nhellwig/tokio-cassandra/issues/9 for this to work on travis
+# start-dependencies-cert $image
 # TODO: provide certificate, possibly test interaction with auth ... might just not be needed though.
 # $cli test-connection $host
 
