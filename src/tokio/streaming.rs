@@ -249,7 +249,7 @@ impl Client {
                    addr: &SocketAddr,
                    handle: &Handle,
                    creds: Option<Credentials>)
-                   -> Box<Future<Item = ClientHandle, Error = self::Error>> {
+                   -> Box<Future<Item = ClientHandle, Error = Error>> {
         let ret = TcpClient::new(self.protocol)
             .connect(addr, handle)
             .map(|client_proxy| ClientHandle { inner: client_proxy })
@@ -295,7 +295,7 @@ pub struct SimpleRequest(pub RequestId, pub request::Message);
 fn interpret_response_and_handle(handle: ClientHandle,
                                  res: StreamingMessage,
                                  creds: Option<Credentials>)
-                                 -> Box<Future<Item = ClientHandle, Error = self::Error>> {
+                                 -> Box<Future<Item = ClientHandle, Error = Error>> {
     let res: response::Message = res.into();
     match res {
         response::Message::Supported(msg) => {
