@@ -1,7 +1,8 @@
 use codec::header::{ProtocolVersion, OpCode, Header, Version};
 use std::collections::HashMap;
 
-use codec::primitives::{CqlConsistency, CqlStringMap, CqlString, CqlBytes, CqlLongString};
+use codec::primitives::{BVec, CqlConsistency, CqlFrom, CqlStringMap, CqlString, CqlBytes,
+                        CqlLongString};
 use codec::primitives::encode;
 
 error_chain! {
@@ -61,7 +62,7 @@ impl CqlEncode for StartupMessage {
 
 #[derive(Debug)]
 pub struct AuthResponseMessage {
-    pub auth_data: CqlBytes<EasyBuf>,
+    pub auth_data: CqlBytes<BVec>,
 }
 
 impl CqlEncode for AuthResponseMessage {
@@ -72,41 +73,98 @@ impl CqlEncode for AuthResponseMessage {
     }
 }
 
-// TODO: test this
 #[derive(Debug)]
 pub enum QueryValues {
-    Positional(Vec<CqlBytes<EasyBuf>>),
-    Named(HashMap<CqlString<EasyBuf>, CqlBytes<EasyBuf>>),
+    Positional(Vec<CqlBytes<BVec>>),
+    Named(HashMap<CqlString<BVec>, CqlBytes<BVec>>),
 }
 
-// TODO: test this
+impl CqlEncode for QueryValues {
+    fn encode(&self, _v: ProtocolVersion, buf: &mut Vec<u8>) -> Result<usize> {
+        use self::QueryValues::*;
+        let len = buf.len();
+
+        match self {
+            &Positional(ref values) => {
+                // TODO: possible overflow return ERR then
+                buf.extend(&encode::short(values.len() as u16)[..]);
+                for value in values {
+                    encode::bytes(value, buf);
+                }
+            }
+            _ => unimplemented!(),
+        }
+
+        Ok(buf.len() - len)
+    }
+}
+
 #[derive(Debug)]
 pub struct QueryMessage {
-    pub query: CqlLongString<EasyBuf>,
+    pub query: CqlLongString<BVec>,
     pub values: Option<QueryValues>,
     pub consistency: CqlConsistency,
     pub skip_metadata: bool,
     pub page_size: Option<i32>,
-    pub paging_state: Option<CqlBytes<EasyBuf>>,
+    pub paging_state: Option<CqlBytes<BVec>>,
     pub serial_consistency: Option<CqlConsistency>,
     pub timestamp: Option<i64>,
 }
 
 impl CqlEncode for QueryMessage {
-    fn encode(&self, _v: ProtocolVersion, buf: &mut Vec<u8>) -> Result<usize> {
+    fn encode(&self, version: ProtocolVersion, buf: &mut Vec<u8>) -> Result<usize> {
         let l = buf.len();
         encode::long_string(&self.query, buf);
         buf.extend(&encode::consistency(&self.consistency)[..]);
 
-        // TODO: real flag encoding
-        let mut x = 0x24;
-        buf.push(x);
+        buf.push(self.compute_flags());
 
-        // TODO: handling of optionals
-        buf.extend(&encode::int(self.page_size.unwrap())[..]);
-        buf.extend(&encode::long(self.timestamp.unwrap())[..]);
+        self.values.as_ref().map(|v| v.encode(version, buf));
+        self.page_size.map(|v| buf.extend(&encode::int(v)[..]));
+        self.paging_state.as_ref().map(|v| encode::bytes(v, buf));
+        self.serial_consistency.as_ref().map(|v| buf.extend(&encode::consistency(&v)[..]));
+        self.timestamp.map(|v| buf.extend(&encode::long(v)[..]));
 
         Ok(buf.len() - l)
+    }
+}
+
+impl QueryMessage {
+    pub fn compute_flags(&self) -> u8 {
+        let mut flags = 0x00;
+
+        self.values.as_ref().map(|_| flags |= 0x01);
+
+        if self.skip_metadata {
+            flags |= 0x02
+        }
+
+        self.page_size.as_ref().map(|_| flags |= 0x04);
+        self.paging_state.as_ref().map(|_| flags |= 0x08);
+        self.serial_consistency.as_ref().map(|_| flags |= 0x10);
+        self.page_size.as_ref().map(|_| flags |= 0x04);
+        self.timestamp.as_ref().map(|_| flags |= 0x20);
+
+        if let Some(QueryValues::Named(_)) = self.values {
+            flags |= 0x40;
+        }
+
+        flags
+    }
+}
+
+impl Default for QueryMessage {
+    fn default() -> Self {
+        QueryMessage {
+            query: CqlLongString::try_from("").unwrap(),
+            values: None,
+            consistency: CqlConsistency::One,
+            skip_metadata: false,
+            page_size: None,
+            paging_state: None,
+            serial_consistency: None,
+            timestamp: None,
+        }
     }
 }
 
@@ -119,13 +177,11 @@ impl Message {
             &AuthResponse(_) => OpCode::AuthResponse,
             &Query(_) => OpCode::Query,
         }
-
     }
 }
 
 impl CqlEncode for Message {
     fn encode(&self, v: ProtocolVersion, buf: &mut Vec<u8>) -> Result<usize> {
-
         match *self {
             Message::Options => Ok(0),
             Message::Startup(ref msg) => msg.encode(v, buf),
@@ -134,7 +190,6 @@ impl CqlEncode for Message {
         }
     }
 }
-
 
 pub fn cql_encode(version: ProtocolVersion,
                   flags: u8,
@@ -169,8 +224,9 @@ pub fn cql_encode(version: ProtocolVersion,
 mod test {
     use super::*;
     use codec::header::ProtocolVersion::*;
-    use codec::primitives::{CqlConsistency, CqlFrom};
+    use codec::primitives::{CqlConsistency, CqlFrom, CqlBytes};
     use codec::authentication::Authenticator;
+    use std::collections::HashMap;
 
     #[test]
     fn from_options_request() {
@@ -240,7 +296,7 @@ mod test {
             query: CqlLongString::try_from("select * from system.local where key = 'local'")
                 .unwrap(),
             values: None,
-            consistency: CqlConsistency::ONE,
+            consistency: CqlConsistency::One,
             skip_metadata: false,
             page_size: Some(5000),
             paging_state: None,
@@ -252,5 +308,47 @@ mod test {
 
         let expected_bytes = include_bytes!("../../tests/fixtures/v3/requests/cli_query.msg");
         assert_eq!(&buf[..], &expected_bytes[..]);
+    }
+
+    #[test]
+    fn query_flags() {
+        let mut o = QueryMessage::default();
+        assert_eq!(o.compute_flags(), 0x00u8);
+
+        o.values = Some(QueryValues::Positional(Vec::new()));
+        assert_eq!(o.compute_flags(), 0x01u8);
+
+        o.values = Some(QueryValues::Named(HashMap::new()));
+        assert_eq!(o.compute_flags(), 0x41u8);
+
+        o.skip_metadata = true;
+        assert_eq!(o.compute_flags(), 0x43u8);
+
+        o.page_size = Some(2);
+        assert_eq!(o.compute_flags(), 0x47u8);
+
+        o.paging_state = Some(CqlBytes::try_from(Vec::new()).unwrap());
+        assert_eq!(o.compute_flags(), 0x4fu8);
+
+        o.serial_consistency = Some(CqlConsistency::LocalSerial);
+        assert_eq!(o.compute_flags(), 0x5fu8);
+
+        o.timestamp = Some(1);
+        assert_eq!(o.compute_flags(), 0x7fu8);
+    }
+
+    #[test]
+    fn encode_query_values_positional() {
+        let values = vec![CqlBytes::try_from(vec![0u8, 1]).unwrap(),
+                          CqlBytes::try_from(vec![2u8, 3]).unwrap()];
+        let values = QueryValues::Positional(values);
+
+        let mut buf = Vec::new();
+        values.encode(Version3, &mut buf).unwrap();
+
+        let expected = vec![0x00, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x01, 0x00, 0x00, 0x00,
+                            0x02, 0x02, 0x03];
+
+        assert_eq!(expected, buf);
     }
 }
