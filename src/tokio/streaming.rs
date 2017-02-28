@@ -6,7 +6,7 @@ use codec::primitives::{CqlBytes, CqlFrom};
 use tokio_service::Service;
 use futures::{future, Future};
 use tokio_core::reactor::Handle;
-use tokio_proto::util::client_proxy::ClientProxy;
+use tokio_proto::util::client_proxy::{Response as ClientProxyResponse, ClientProxy};
 use tokio_proto::streaming::{Message, Body};
 use tokio_proto::streaming::multiplex::{RequestId, ClientProto, Frame};
 use tokio_proto::TcpClient;
@@ -209,7 +209,10 @@ impl<T: Io + 'static> ClientProto<T> for CqlProto {
 
 
 pub struct ClientHandle {
-    inner: ClientProxy<RequestMessage, ResponseMessage, io::Error>,
+    inner: Box<Service<Request = RequestMessage,
+                       Response = ResponseMessage,
+                       Error = io::Error,
+                       Future = ClientProxyResponse<ResponseMessage, io::Error>>>,
 }
 
 impl From<request::Message> for RequestMessage {
@@ -234,7 +237,7 @@ impl Service for ClientHandle {
     type Future = Box<Future<Item = Self::Response, Error = Self::Error>>;
 
     fn call(&self, req: Self::Request) -> Self::Future {
-        self.inner.call(req.into()).map(From::from).boxed()
+        Box::new(self.inner.call(req.into()).map(From::from))
     }
 }
 
@@ -251,7 +254,7 @@ impl Client {
                    -> Box<Future<Item = ClientHandle, Error = Error>> {
         let ret = TcpClient::new(self.protocol)
             .connect(addr, handle)
-            .map(|client_proxy| ClientHandle { inner: client_proxy })
+            .map(|client_proxy| ClientHandle { inner: Box::new(client_proxy) })
             .and_then(|client_handle| {
                 client_handle.call(request::Message::Options).map(|r| (r, client_handle))
             })
@@ -312,13 +315,13 @@ fn interpret_response_and_handle(handle: ClientHandle,
             Box::new(f.and_then(|(res, ch)| interpret_response_and_handle(ch, res, creds))
                 .and_then(|ch| Ok(ch)))
         }
-        response::Message::Ready => future::ok(handle).boxed(),
+        response::Message::Ready => Box::new(future::ok(handle)),
         response::Message::AuthSuccess(msg) => {
             debug!("Authentication Succeded: {:?}", msg);
-            future::ok(handle).boxed()
+            Box::new(future::ok(handle))
         }
         response::Message::Error(msg) => {
-            future::err(ErrorKind::CqlError(msg.code, msg.text.into()).into()).boxed()
+            Box::new(future::err(ErrorKind::CqlError(msg.code, msg.text.into()).into()))
         }
     }
 
