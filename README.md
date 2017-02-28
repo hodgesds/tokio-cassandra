@@ -68,7 +68,7 @@ A Cassandra Native Protocol 3 implementation using Tokio for IO.
     * [ ] [option](https://github.com/nhellwig/tokio-cassandra/projects/2#card-1774765)
     * [ ] [option list](https://github.com/nhellwig/tokio-cassandra/projects/2#card-1774766)
     * [ ] [inet](https://github.com/nhellwig/tokio-cassandra/projects/2#card-1774767)
-    * [ ] [consistency](https://github.com/nhellwig/tokio-cassandra/projects/2#card-1774768)
+    * [x] [consistency](https://github.com/nhellwig/tokio-cassandra/projects/2#card-1774768)
     * [x] string map
     * [x] string multi-map
   * **Messages**
@@ -80,7 +80,7 @@ A Cassandra Native Protocol 3 implementation using Tokio for IO.
       * [x] Startup
       * [x] Auth-Response
       * [x] Options
-      * [ ] Query
+      * [x] Query
       * [ ] Prepare
       * [ ] Execute
       * [ ] Batch
