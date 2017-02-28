@@ -105,7 +105,7 @@ mod test {
 
     #[test]
     fn string() {
-        let s = CqlString::try_from("Hello üß").unwrap();
+        let s = cql_string!("Hello üß");
         let mut buf = Vec::new();
         encode::string(&s, &mut buf);
 

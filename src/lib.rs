@@ -26,6 +26,9 @@ extern crate semver;
 #[macro_use]
 extern crate log;
 
+#[macro_use]
+mod macros;
+
 pub mod codec;
 mod tokio;
 pub use self::tokio::*;

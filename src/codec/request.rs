@@ -92,7 +92,13 @@ impl CqlEncode for QueryValues {
                     encode::bytes(value, buf);
                 }
             }
-            _ => unimplemented!(),
+            &Named(ref values) => {
+                buf.extend(&encode::short(values.len() as u16)[..]);
+                for (key, value) in values {
+                    encode::string(key, buf);
+                    encode::bytes(value, buf);
+                }
+            }
         }
 
         Ok(buf.len() - len)
@@ -339,8 +345,7 @@ mod test {
 
     #[test]
     fn encode_query_values_positional() {
-        let values = vec![CqlBytes::try_from(vec![0u8, 1]).unwrap(),
-                          CqlBytes::try_from(vec![2u8, 3]).unwrap()];
+        let values = vec![cql_bytes!(0u8, 1), CqlBytes::try_from(vec![2u8, 3]).unwrap()];
         let values = QueryValues::Positional(values);
 
         let mut buf = Vec::new();
@@ -349,6 +354,23 @@ mod test {
         let expected = vec![0x00, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x01, 0x00, 0x00, 0x00,
                             0x02, 0x02, 0x03];
 
+        assert_eq!(expected, buf);
+    }
+
+    #[test]
+    fn encode_query_values_named() {
+        let values = {
+            let mut m = HashMap::new();
+            m.insert(cql_string!("a"), cql_bytes!(0, 1));
+            m
+        };
+
+        let values = QueryValues::Named(values);
+
+        let mut buf = Vec::new();
+        values.encode(Version3, &mut buf).unwrap();
+
+        let expected = vec![0x00, 0x01, 0x00, 0x01, 97, 0x00, 0x00, 0x00, 0x02, 0x00, 0x01];
         assert_eq!(expected, buf);
     }
 }

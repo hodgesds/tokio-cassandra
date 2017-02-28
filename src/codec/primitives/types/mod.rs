@@ -1,3 +1,4 @@
+
 use std::convert::AsRef;
 use std::hash::Hash;
 use std::collections::HashMap;
@@ -16,6 +17,8 @@ pub use self::cql_consistency::*;
 
 mod collections;
 pub use self::collections::*;
+
+
 
 error_chain! {
     errors {
