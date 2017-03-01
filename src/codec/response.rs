@@ -121,6 +121,14 @@ impl CqlDecode<ErrorMessage> for ErrorMessage {
 pub enum ResultHeader {
     Void,
     SetKeyspace(CqlString<EasyBuf>),
+    SchemaChange(SchemaChangePayload),
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct SchemaChangePayload {
+    change_type: CqlString<EasyBuf>,
+    target: CqlString<EasyBuf>,
+    options: CqlString<EasyBuf>,
 }
 
 impl ResultHeader {
@@ -134,12 +142,10 @@ impl ResultHeader {
             let (buf, t) = decode::int(buf)?;
             match t {
                 0x0001 => Ok(Some(ResultHeader::Void)),
-                0x0003 => {
-                    match decode::string(buf) {
-                        Ok((_, s)) => Ok(Some(ResultHeader::SetKeyspace(s))),
-                        Err(decode::Error::Incomplete(_)) => Ok(None),
-                        Err(a) => Err(a.into()),
-                    }
+                0x0003 => Self::match_decode(decode::string(buf), |s| ResultHeader::SetKeyspace(s)),
+                0x0005 => {
+                    Self::match_decode(Self::decode_schema_change(buf),
+                                       |c| ResultHeader::SchemaChange(c))
                 }
                 // TODO:
                 // 0x0002    Rows: for results to select queries, returning a set of rows.
@@ -148,6 +154,29 @@ impl ResultHeader {
                 _ => Ok(None),
             }
         }
+    }
+
+    fn match_decode<T, F>(decoded: decode::ParseResult<T>, f: F) -> Result<Option<ResultHeader>>
+        where F: Fn(T) -> ResultHeader
+    {
+        match decoded {
+            Ok((_, s)) => Ok(Some(f(s))),
+            Err(decode::Error::Incomplete(_)) => Ok(None),
+            Err(a) => Err(a.into()),
+        }
+    }
+
+    fn decode_schema_change(buf: EasyBuf) -> decode::ParseResult<SchemaChangePayload> {
+        let (buf, change_type) = decode::string(buf)?;
+        let (buf, target) = decode::string(buf)?;
+        let (buf, options) = decode::string(buf)?;
+
+        Ok((buf,
+            SchemaChangePayload {
+                change_type: change_type,
+                target: target,
+                options: options,
+            }))
     }
 }
 
@@ -265,5 +294,23 @@ mod test {
 
         let res = ResultHeader::decode(Version3, buf.into()).unwrap();
         assert_eq!(res, Some(ResultHeader::SetKeyspace(cql_string!("abcd"))));
+    }
+
+    #[test]
+    fn decode_result_header_schema_change() {
+        let msg = include_bytes!("../../tests/fixtures/v3/responses/result_schema_change.msg");
+        let buf = Vec::from(skip_header(&msg[..]));
+
+        // Ok(None) Ok(Some()), Err()
+        let res = ResultHeader::decode(Version3, Vec::from(&buf[0..6]).into()).unwrap();
+        assert_eq!(res, None);
+
+        let res = ResultHeader::decode(Version3, buf.into()).unwrap();
+        assert_eq!(res,
+                   Some(ResultHeader::SchemaChange(SchemaChangePayload {
+                       change_type: cql_string!("change_type"),
+                       target: cql_string!("target"),
+                       options: cql_string!("options"),
+                   })));
     }
 }
