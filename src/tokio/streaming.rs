@@ -5,13 +5,11 @@ use codec::authentication::{Authenticator, Credentials, TlsOptions};
 use codec::primitives::{CqlBytes, CqlFrom};
 use tokio_service::Service;
 use futures::{future, Future};
-use tokio_openssl::SslStream;
 use tokio_core::reactor::Handle;
-use tokio_core::net::TcpStream;
 use tokio_proto::util::client_proxy::{Response as ClientProxyResponse, ClientProxy};
 use tokio_proto::streaming::{Message, Body};
-use tokio_proto::streaming::multiplex::{StreamingMultiplex, RequestId, ClientProto, Frame};
-use tokio_proto::{BindClient, TcpClient};
+use tokio_proto::streaming::multiplex::{RequestId, ClientProto, Frame};
+use tokio_proto::TcpClient;
 use tokio_core::io::{EasyBuf, Codec, Io, Framed};
 use std::{io, mem};
 use std::net::SocketAddr;
@@ -246,6 +244,16 @@ impl Service for ClientHandle {
 /// Currently acts more like a builder, and the desired semantics are yet to be determined.
 pub struct Client {
     pub protocol: CqlProto,
+}
+
+#[cfg(not(feature = "ssl"))]
+fn ssl_client(_protocol: CqlProto,
+              _addr: &SocketAddr,
+              _handle: &Handle,
+              _tls: TlsOptions)
+              -> Option<Box<Future<Item = ClientProxy<RequestMessage, ResponseMessage, io::Error>,
+                                   Error = io::Error>>> {
+    None
 }
 
 #[cfg(feature = "ssl")]
