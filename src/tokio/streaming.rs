@@ -247,7 +247,7 @@ pub struct Client {
     pub protocol: CqlProto,
 }
 
-#[cfg(not(feature = "ssl"))]
+#[cfg(not(feature = "with-openssl"))]
 fn ssl_client(_protocol: CqlProto,
               _addr: &SocketAddr,
               _handle: &Handle,
@@ -257,7 +257,7 @@ fn ssl_client(_protocol: CqlProto,
     None
 }
 
-#[cfg(feature = "ssl")]
+#[cfg(feature = "with-openssl")]
 fn ssl_client(protocol: CqlProto,
               addr: &SocketAddr,
               handle: &Handle,

@@ -38,7 +38,7 @@ version = "0.9"
 [features]
 default_features = []
 with-serde = ["serde_derive", "serde"]
-ssl = ["tokio-openssl", "openssl"]
+with-openssl = ["tokio-openssl", "openssl"]
 
 [replace]
 

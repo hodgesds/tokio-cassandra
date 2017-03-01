@@ -16,9 +16,9 @@ extern crate futures;
 extern crate tokio_core;
 extern crate tokio_service;
 extern crate tokio_proto;
-#[cfg(feature = "ssl")]
+#[cfg(feature = "with-openssl")]
 extern crate tokio_openssl;
-#[cfg(feature = "ssl")]
+#[cfg(feature = "with-openssl")]
 extern crate openssl;
 
 extern crate semver;

@@ -15,7 +15,7 @@ use super::TlsOptions;
 pub struct SslClient<Kind, P> {
     _kind: PhantomData<Kind>,
     proto: Arc<P>,
-    tls: TlsOptions,
+    _tls: TlsOptions,
 }
 
 pub struct Connect<Kind, P> {
@@ -41,11 +41,11 @@ impl<Kind, P> Future for Connect<Kind, P>
 impl<Kind, P> SslClient<Kind, P>
     where P: BindClient<Kind, SslStream<TcpStream>>
 {
-    pub fn new(protocol: P, tls: TlsOptions) -> SslClient<Kind, P> {
+    pub fn new(protocol: P, _tls: TlsOptions) -> SslClient<Kind, P> {
         SslClient {
             _kind: PhantomData,
             proto: Arc::new(protocol),
-            tls: tls,
+            _tls: _tls,
         }
     }
 
