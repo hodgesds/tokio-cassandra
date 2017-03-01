@@ -1,15 +1,17 @@
 use codec::request::{self, cql_encode};
 use codec::response;
 use codec::header::{Header, ProtocolVersion, Direction};
-use codec::authentication::{Authenticator, Credentials};
+use codec::authentication::{Authenticator, Credentials, TlsOptions};
 use codec::primitives::{CqlBytes, CqlFrom};
 use tokio_service::Service;
 use futures::{future, Future};
+use tokio_openssl::SslStream;
 use tokio_core::reactor::Handle;
+use tokio_core::net::TcpStream;
 use tokio_proto::util::client_proxy::{Response as ClientProxyResponse, ClientProxy};
 use tokio_proto::streaming::{Message, Body};
-use tokio_proto::streaming::multiplex::{RequestId, ClientProto, Frame};
-use tokio_proto::TcpClient;
+use tokio_proto::streaming::multiplex::{StreamingMultiplex, RequestId, ClientProto, Frame};
+use tokio_proto::{BindClient, TcpClient};
 use tokio_core::io::{EasyBuf, Codec, Io, Framed};
 use std::{io, mem};
 use std::net::SocketAddr;
@@ -246,14 +248,28 @@ pub struct Client {
     pub protocol: CqlProto,
 }
 
+#[cfg(feature = "ssl")]
+fn ssl_client(protocol: CqlProto,
+              addr: &SocketAddr,
+              handle: &Handle,
+              tls: TlsOptions)
+              -> Box<Future<Item = ClientProxy<RequestMessage, ResponseMessage, io::Error>,
+                                   Error = io::Error>> {
+    use super::ssl_client::{Connect as SslConnect, SslClient};
+    Box::new(SslClient::new(protocol).connect(addr, handle))
+}
+
 impl Client {
     pub fn connect(self,
                    addr: &SocketAddr,
                    handle: &Handle,
-                   creds: Option<Credentials>)
+                   creds: Option<Credentials>,
+                   tls: Option<TlsOptions>)
                    -> Box<Future<Item = ClientHandle, Error = Error>> {
-        let ret = TcpClient::new(self.protocol)
-            .connect(addr, handle)
+        let ret = match tls {
+                Some(tls) => ssl_client(self.protocol, addr, handle, tls),
+                None => Box::new(TcpClient::new(self.protocol).connect(addr, handle)),
+            }
             .map(|client_proxy| ClientHandle { inner: Box::new(client_proxy) })
             .and_then(|client_handle| {
                 client_handle.call(request::Message::Options).map(|r| (r, client_handle))
