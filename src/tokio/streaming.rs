@@ -78,6 +78,7 @@ impl From<response::Message> for StreamingMessage {
             response::Message::AuthSuccess(msg) => StreamingMessage::AuthSuccess(msg),
             response::Message::Authenticate(msg) => StreamingMessage::Authenticate(msg),
             response::Message::Error(msg) => StreamingMessage::Error(msg),
+            response::Message::Result => unimplemented!(),
         }
     }
 }
@@ -352,6 +353,12 @@ fn interpret_response_and_handle(handle: ClientHandle,
         }
         response::Message::Error(msg) => {
             Box::new(future::err(ErrorKind::CqlError(msg.code, msg.text.into()).into()))
+        }
+        msg => {
+            Box::new(future::err(ErrorKind::HandshakeError(format!("Did not expect to receive \
+                                                                    the following message {:?}",
+                                                                   msg))
+                .into()))
         }
     }
 

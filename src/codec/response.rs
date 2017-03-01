@@ -30,6 +30,7 @@ pub enum Message {
     Authenticate(AuthenticateMessage),
     AuthSuccess(AuthSuccessMessage),
     Error(ErrorMessage),
+    Result,
 }
 
 pub trait CqlDecode<T> {
@@ -116,6 +117,40 @@ impl CqlDecode<ErrorMessage> for ErrorMessage {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum ResultHeader {
+    Void,
+    SetKeyspace(CqlString<EasyBuf>),
+}
+
+impl ResultHeader {
+    pub fn decode(_v: ProtocolVersion,
+                  buf: ::tokio_core::io::EasyBuf)
+                  -> Result<Option<ResultHeader>> {
+
+        if buf.len() < 4 {
+            Ok(None)
+        } else {
+            let (buf, t) = decode::int(buf)?;
+            match t {
+                0x0001 => Ok(Some(ResultHeader::Void)),
+                0x0003 => {
+                    match decode::string(buf) {
+                        Ok((_, s)) => Ok(Some(ResultHeader::SetKeyspace(s))),
+                        Err(decode::Error::Incomplete(_)) => Ok(None),
+                        Err(a) => Err(a.into()),
+                    }
+                }
+                // TODO:
+                // 0x0002    Rows: for results to select queries, returning a set of rows.
+                // 0x0004    Prepared: result to a PREPARE message.
+                // 0x0005    Schema_change: the result to a schema altering query.
+                _ => Ok(None),
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
     use codec::header::Header;
@@ -186,5 +221,49 @@ mod test {
         assert_eq!(res.code, 256);
         assert_eq!(res.text,
                    CqlString::try_from("Username and/or password are incorrect").unwrap());
+    }
+
+    #[test]
+    fn decode_result_header_rows() {
+        let msg = include_bytes!("../../tests/fixtures/v3/responses/result_rows.msg");
+        let buf = Vec::from(skip_header(&msg[..]));
+
+        // Ok(None) Ok(Some()), Err()
+        let res = ResultHeader::decode(Version3, Vec::from(&buf[0..5]).into()).unwrap();
+        assert_eq!(res, None);
+
+        // TODO: decode a rows result
+
+
+        // rest of drained buf should be used for streaming results after that
+    }
+
+    #[test]
+    fn decode_result_header_void() {
+        let msg = include_bytes!("../../tests/fixtures/v3/responses/result_void.msg");
+        let buf = Vec::from(skip_header(&msg[..]));
+
+        // Ok(None) Ok(Some()), Err()
+        let res = ResultHeader::decode(Version3, Vec::from(&buf[0..1]).into()).unwrap();
+        assert_eq!(res, None);
+
+        let res = ResultHeader::decode(Version3, buf.into()).unwrap();
+        assert_eq!(res, Some(ResultHeader::Void));
+    }
+
+    #[test]
+    fn decode_result_header_set_keyspace() {
+        let msg = include_bytes!("../../tests/fixtures/v3/responses/result_set_keyspace.msg");
+        let buf = Vec::from(skip_header(&msg[..]));
+
+        // Ok(None) Ok(Some()), Err()
+        let res = ResultHeader::decode(Version3, Vec::from(&buf[0..6]).into()).unwrap();
+        assert_eq!(res, None);
+
+        let res = ResultHeader::decode(Version3, Vec::from(&buf[0..9]).into()).unwrap();
+        assert_eq!(res, None);
+
+        let res = ResultHeader::decode(Version3, buf.into()).unwrap();
+        assert_eq!(res, Some(ResultHeader::SetKeyspace(cql_string!("abcd"))));
     }
 }
