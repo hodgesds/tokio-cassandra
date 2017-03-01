@@ -24,11 +24,11 @@ toc:
 	doctoc --github --title "A Cassandra Native Protocol 3 implementation using Tokio for IO." README.md
 	
 unit-tests:
-	cargo doc
+	cargo doc --all-features
 	cargo test --all-features
 
 $(CLI_EXECUTABLE): $(shell find cli -name "*.rs")
-	cd cli && cargo build
+	cd cli && cargo build --all-features
 
 integration-tests: $(CLI_EXECUTABLE) $(DB_IMAGE_OK)
 	bin/integration-test.sh $(CLI_EXECUTABLE) $(DB_IMAGE_NAME)
@@ -47,7 +47,7 @@ attach-docker-db:
 	DEBUG_RUN_IMAGE=true $(MAKE) $(type)-docker-db
 
 cli-tests:
-	cd cli && cargo run -- test-connection -u cassandra -p cassandra 127.0.0.1 9042
+	cd cli && cargo run --all-features -- test-connection -u cassandra -p cassandra 127.0.0.1 9042
 
 secrets:
 	$(MAKE) -C etc/docker-cassandra $@

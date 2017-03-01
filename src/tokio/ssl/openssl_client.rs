@@ -10,12 +10,12 @@ use tokio_openssl::{SslStream, SslConnectorExt};
 use futures::{Future, Poll, Async};
 use openssl::ssl::{SslMethod, SslConnectorBuilder};
 
-use super::TlsOptions;
+use super::Options;
 
 pub struct SslClient<Kind, P> {
     _kind: PhantomData<Kind>,
     proto: Arc<P>,
-    _tls: TlsOptions,
+    _tls: Options,
 }
 
 pub struct Connect<Kind, P> {
@@ -41,7 +41,7 @@ impl<Kind, P> Future for Connect<Kind, P>
 impl<Kind, P> SslClient<Kind, P>
     where P: BindClient<Kind, SslStream<TcpStream>>
 {
-    pub fn new(protocol: P, _tls: TlsOptions) -> SslClient<Kind, P> {
+    pub fn new(protocol: P, _tls: Options) -> SslClient<Kind, P> {
         SslClient {
             _kind: PhantomData,
             proto: Arc::new(protocol),

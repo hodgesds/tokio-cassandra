@@ -14,7 +14,7 @@ use tokio_core::io::{EasyBuf, Codec, Io, Framed};
 use std::{io, mem};
 use std::net::SocketAddr;
 use super::utils::{io_err, decode_complete_message_by_opcode};
-use super::ssl::TlsOptions;
+use super::ssl;
 
 error_chain!{
     errors{
@@ -252,7 +252,7 @@ pub struct Client {
 fn ssl_client(_protocol: CqlProto,
               _addr: &SocketAddr,
               _handle: &Handle,
-              _tls: TlsOptions)
+              _tls: ssl::Options)
               -> Option<Box<Future<Item = ClientProxy<RequestMessage, ResponseMessage, io::Error>,
                                    Error = io::Error>>> {
     None
@@ -262,7 +262,7 @@ fn ssl_client(_protocol: CqlProto,
 fn ssl_client(protocol: CqlProto,
               addr: &SocketAddr,
               handle: &Handle,
-              tls: TlsOptions)
+              tls: ssl::Options)
               -> Option<Box<Future<Item = ClientProxy<RequestMessage, ResponseMessage, io::Error>,
                                    Error = io::Error>>> {
     use super::ssl::ssl_client::SslClient;
@@ -274,7 +274,7 @@ impl Client {
                    addr: &SocketAddr,
                    handle: &Handle,
                    creds: Option<Credentials>,
-                   tls: Option<TlsOptions>)
+                   tls: Option<ssl::Options>)
                    -> Box<Future<Item = ClientHandle, Error = Error>> {
         let ret = match tls {
                 Some(tls) => {

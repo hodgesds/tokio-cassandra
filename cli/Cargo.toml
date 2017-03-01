@@ -24,7 +24,7 @@ tokio-proto = "0.1"
 tokio-service = "0.1"
 
 [dependencies.tokio-cassandra]
-features = ["with-serde", "ssl"]
+features = ["with-serde", "with-openssl"]
 path = ".."
 version = "0.0"
 
