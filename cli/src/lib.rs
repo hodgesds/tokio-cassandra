@@ -51,19 +51,10 @@ mod scmds {
 
         let mut core = Core::new().expect("Core can be created");
         let handle = core.handle();
+        let tls = None;
 
-        let client = Client {
-                protocol: CqlProto {
-                    version: ProtocolVersion::Version3,
-                },
-            }
-            .connect(&addr, &handle, creds);
-//            .and_then(|client| {
-//                // TODO: make client handle creation more ergonomic
-//                // map(EasyClientHanle::into) didn't work
-//                let client: EasyClientHandle = client.into();
-//                client.call(request::Message::Options)
-//            });
+        let client = Client { protocol: CqlProto { version: ProtocolVersion::Version3 } }
+            .connect(&addr, &handle, creds, tls);
 
         core.run(client)
             .chain_err(|| format!("Failed to connect to {}:{}", host, port))

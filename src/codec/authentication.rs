@@ -11,8 +11,6 @@ pub enum Credentials {
     Login { username: String, password: String },
 }
 
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct TlsOptions;
 
 pub enum Authenticator {
     PlainTextAuthenticator { username: String, password: String },

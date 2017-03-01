@@ -1,7 +1,7 @@
 use codec::request::{self, cql_encode};
 use codec::response;
 use codec::header::{Header, ProtocolVersion, Direction};
-use codec::authentication::{Authenticator, Credentials, TlsOptions};
+use codec::authentication::{Authenticator, Credentials};
 use codec::primitives::{CqlBytes, CqlFrom};
 use tokio_service::Service;
 use futures::{future, Future};
@@ -14,6 +14,7 @@ use tokio_core::io::{EasyBuf, Codec, Io, Framed};
 use std::{io, mem};
 use std::net::SocketAddr;
 use super::utils::{io_err, decode_complete_message_by_opcode};
+use super::ssl::TlsOptions;
 
 error_chain!{
     errors{
@@ -263,8 +264,8 @@ fn ssl_client(protocol: CqlProto,
               tls: TlsOptions)
               -> Option<Box<Future<Item = ClientProxy<RequestMessage, ResponseMessage, io::Error>,
                                    Error = io::Error>>> {
-    use super::ssl_client::{Connect as SslConnect, SslClient};
-    Some(Box::new(SslClient::new(protocol).connect(addr, handle)))
+    use super::ssl::ssl_client::SslClient;
+    Some(Box::new(SslClient::new(protocol, tls).connect(addr, handle)))
 }
 
 impl Client {
