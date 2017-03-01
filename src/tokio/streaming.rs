@@ -253,10 +253,10 @@ fn ssl_client(protocol: CqlProto,
               addr: &SocketAddr,
               handle: &Handle,
               tls: TlsOptions)
-              -> Box<Future<Item = ClientProxy<RequestMessage, ResponseMessage, io::Error>,
-                                   Error = io::Error>> {
+              -> Option<Box<Future<Item = ClientProxy<RequestMessage, ResponseMessage, io::Error>,
+                                   Error = io::Error>>> {
     use super::ssl_client::{Connect as SslConnect, SslClient};
-    Box::new(SslClient::new(protocol).connect(addr, handle))
+    Some(Box::new(SslClient::new(protocol).connect(addr, handle)))
 }
 
 impl Client {
@@ -267,7 +267,12 @@ impl Client {
                    tls: Option<TlsOptions>)
                    -> Box<Future<Item = ClientHandle, Error = Error>> {
         let ret = match tls {
-                Some(tls) => ssl_client(self.protocol, addr, handle, tls),
+                Some(tls) => {
+                    ssl_client(self.protocol, addr, handle, tls).unwrap_or_else(|| {
+                        Box::new(future::err(io_err("Please compile this library with \
+                                                     --features=ssl")))
+                    })
+                }
                 None => Box::new(TcpClient::new(self.protocol).connect(addr, handle)),
             }
             .map(|client_proxy| ClientHandle { inner: Box::new(client_proxy) })
