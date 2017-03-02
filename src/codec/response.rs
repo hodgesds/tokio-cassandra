@@ -122,6 +122,7 @@ pub enum ResultHeader {
     Void,
     SetKeyspace(CqlString<EasyBuf>),
     SchemaChange(SchemaChangePayload),
+    Rows(RowsMetadata),
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -129,6 +130,31 @@ pub struct SchemaChangePayload {
     change_type: CqlString<EasyBuf>,
     target: CqlString<EasyBuf>,
     options: CqlString<EasyBuf>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct RowsMetadata {
+    global_tables_spec: Option<TableSpec>,
+    paging_state: Option<CqlBytes<EasyBuf>>,
+    no_metadata: bool,
+    columns_count: i32,
+}
+
+impl Default for RowsMetadata {
+    fn default() -> RowsMetadata {
+        RowsMetadata {
+            global_tables_spec: None,
+            paging_state: None,
+            no_metadata: false,
+            columns_count: -1,
+        }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct TableSpec {
+    keyspace: CqlString<EasyBuf>,
+    table: CqlString<EasyBuf>,
 }
 
 impl ResultHeader {
@@ -142,15 +168,16 @@ impl ResultHeader {
             let (buf, t) = decode::int(buf)?;
             match t {
                 0x0001 => Ok(Some(ResultHeader::Void)),
+                0x0002 => {
+                    Self::match_decode(Self::decode_rows_metadata(buf), |d| ResultHeader::Rows(d))
+                }
                 0x0003 => Self::match_decode(decode::string(buf), |s| ResultHeader::SetKeyspace(s)),
                 0x0005 => {
                     Self::match_decode(Self::decode_schema_change(buf),
                                        |c| ResultHeader::SchemaChange(c))
                 }
                 // TODO:
-                // 0x0002    Rows: for results to select queries, returning a set of rows.
                 // 0x0004    Prepared: result to a PREPARE message.
-                // 0x0005    Schema_change: the result to a schema altering query.
                 _ => Ok(None),
             }
         }
@@ -177,6 +204,40 @@ impl ResultHeader {
                 target: target,
                 options: options,
             }))
+    }
+
+    fn decode_rows_metadata(buf: EasyBuf) -> decode::ParseResult<RowsMetadata> {
+        let (buf, flags) = decode::int(buf)?;
+        let (buf, col_count) = decode::int(buf)?;
+
+        // <flags><columns_count>[<paging_state>]
+        // [<global_table_spec>?<col_spec_1>...<col_spec_n>]
+
+        let mut rows_metadata = RowsMetadata::default();
+
+        rows_metadata.columns_count = col_count;
+
+        if (flags & 0x0002) == 0x0002 {
+            rows_metadata.paging_state = Some(cql_bytes!(1, 2, 3));
+        }
+
+        let buf = if (flags & 0x0001) == 0x0001 {
+            let (buf, keyspace) = decode::string(buf)?;
+            let (buf, table) = decode::string(buf)?;
+            rows_metadata.global_tables_spec = Some(TableSpec {
+                keyspace: keyspace,
+                table: table,
+            });
+            buf
+        } else {
+            buf
+        };
+
+        // TODO: parse column spec if present
+
+        rows_metadata.no_metadata = (flags & 0x0004) == 0x0004;
+
+        Ok((buf, rows_metadata))
     }
 }
 
@@ -261,8 +322,18 @@ mod test {
         let res = ResultHeader::decode(Version3, Vec::from(&buf[0..5]).into()).unwrap();
         assert_eq!(res, None);
 
-        // TODO: decode a rows result
+        let rexpected = RowsMetadata {
+            global_tables_spec: Some(TableSpec {
+                keyspace: cql_string!("system"),
+                table: cql_string!("local"),
+            }),
+            paging_state: None,
+            no_metadata: false,
+            columns_count: 18,
+        };
 
+        let res = ResultHeader::decode(Version3, buf.into()).unwrap();
+        assert_eq!(res, Some(ResultHeader::Rows(rexpected)));
 
         // rest of drained buf should be used for streaming results after that
     }
