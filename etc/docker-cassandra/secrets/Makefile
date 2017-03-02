@@ -5,6 +5,8 @@ info:
 PASSWORD=cassandra
 TRUST_STORE=truststore.jks
 SERVER_STORE=keystore.jks
+SERVER_KEY_FILE=keystore.key.pem
+SERVER_CER_FILE=keystore.cer.pem
 SERVER_ALIAS=docker-db
 SERVER_CERT=$(SERVER_ALIAS).crt
 SERVER_PK12=keystore.p12
@@ -21,4 +23,10 @@ $(TRUST_STORE): $(SERVER_CERT)
 $(SERVER_PK12): $(SERVER_STORE)
 	keytool -importkeystore -srckeystore $< -destkeystore $@ -deststoretype PKCS12 -srcstorepass $(PASSWORD) -deststorepass $(PASSWORD)
 
-secrets: $(SERVER_PK12) $(SERVER_STORE) $(TRUST_STORE)
+$(SERVER_KEY_FILE): $(SERVER_PK12)
+	openssl pkcs12 -in $< -nodes -nocerts -out $@ -passin pass:$(PASSWORD)
+
+$(SERVER_CER_FILE): $(SERVER_PK12)
+	openssl pkcs12 -in $< -nokeys -out $@ -passin pass:$(PASSWORD)
+
+secrets: $(SERVER_PK12) $(SERVER_STORE) $(TRUST_STORE) $(SERVER_KEY_FILE) $(SERVER_CER_FILE)

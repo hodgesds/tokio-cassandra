@@ -55,8 +55,13 @@ start-dependencies() {
 }
 
 function test-tls () {
-   curl -m 1 -E ./etc/docker-cassandra/secrets/keystore.p12:cassandra -k https://$1:$2
-   [ $? = 28 ]
+	if [ "`uname -s`" = Linux ]; then
+		curl -m 1 --key ./etc/docker-cassandra/secrets/keystore.key.pem \
+							--cert ./etc/docker-cassandra/secrets/keystore.cer.pem -k https://$1:$2
+	else
+		curl -m 1 -E ./etc/docker-cassandra/secrets/keystore.p12:cassandra -k https://$1:$2
+	fi
+	[ $? = 28 ]
 }
 
 function test-simple () {
