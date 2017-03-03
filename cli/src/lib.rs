@@ -53,7 +53,12 @@ mod scmds {
         let handle = core.handle();
         let tls = None;
 
-        let client = Client { protocol: CqlProto { version: ProtocolVersion::Version3 } }
+        let client = Client {
+                protocol: CqlProto {
+                    version: ProtocolVersion::Version3,
+                    debug: None,
+                },
+            }
             .connect(&addr, &handle, creds, tls);
 
         core.run(client)

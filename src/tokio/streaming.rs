@@ -3,6 +3,7 @@ use codec::response;
 use codec::header::{Header, ProtocolVersion, Direction};
 use codec::authentication::{Authenticator, Credentials};
 use codec::primitives::{CqlBytes, CqlFrom};
+use std::path::PathBuf;
 use tokio_service::Service;
 use futures::{future, Future};
 use tokio_core::reactor::Handle;
@@ -95,8 +96,13 @@ pub struct CqlCodec {
     state: Machine,
     flags: u8,
     version: ProtocolVersion,
+    debug: CqlCodecDebuggingOptions,
 }
 
+#[derive(PartialEq, Debug, Clone, Default)]
+pub struct CqlCodecDebuggingOptions {
+    dump_decoded_frames_into: Option<PathBuf>,
+}
 
 #[derive(PartialEq, Debug, Clone)]
 enum Machine {
@@ -105,11 +111,12 @@ enum Machine {
 }
 
 impl CqlCodec {
-    fn new(v: ProtocolVersion) -> Self {
+    fn new(v: ProtocolVersion, debug: CqlCodecDebuggingOptions) -> Self {
         CqlCodec {
             state: Machine::NeedHeader,
             flags: 0,
             version: v,
+            debug: debug,
         }
     }
 }
@@ -190,6 +197,7 @@ impl Codec for CqlCodec {
 #[derive(PartialEq, Debug, Clone)]
 pub struct CqlProto {
     pub version: ProtocolVersion,
+    pub debug: Option<CqlCodecDebuggingOptions>,
 }
 
 impl<T: Io + 'static> ClientProto<T> for CqlProto {
@@ -205,7 +213,7 @@ impl<T: Io + 'static> ClientProto<T> for CqlProto {
 
     fn bind_transport(&self, io: T) -> Self::BindTransport {
         debug!("binding transport!");
-        Ok(io.framed(CqlCodec::new(self.version)))
+        Ok(io.framed(CqlCodec::new(self.version, self.debug.clone().unwrap_or_default())))
     }
 }
 
