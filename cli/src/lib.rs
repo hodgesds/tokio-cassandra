@@ -25,7 +25,7 @@ pub mod errors {
 mod scmds {
     use clap;
     use super::errors::*;
-    use tokio_cassandra::streaming::{CqlProto, Client};
+    use tokio_cassandra::streaming::{CqlCodecDebuggingOptions, CqlProto, Client};
     use tokio_cassandra::codec::authentication::Credentials;
     use tokio_cassandra::codec::header::ProtocolVersion;
     use tokio_core::reactor::Core;
@@ -37,6 +37,10 @@ mod scmds {
             .chain_err(|| format!("Port '{}' could not be parsed as number", port))?;
         let addr = format!("{}:{}", host, port).parse()
             .chain_err(|| format!("Host '{}' could not be parsed as IP", host))?;
+        let debug = args.value_of("debug-dump-frames-into-directory")
+            .map(|p| {
+                CqlCodecDebuggingOptions { dump_frames_into: Some(p.into()), ..Default::default() }
+            });
 
         let creds = {
             if let (Some(usr), Some(pwd)) = (args.value_of("user"), args.value_of("password")) {
@@ -56,7 +60,7 @@ mod scmds {
         let client = Client {
                 protocol: CqlProto {
                     version: ProtocolVersion::Version3,
-                    debug: None,
+                    debug: debug,
                 },
             }
             .connect(&addr, &handle, creds, tls);

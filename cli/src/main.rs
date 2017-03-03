@@ -32,6 +32,12 @@ pub fn run() -> Result<()> {
 
     let mut app: clap::App = app_from_crate!();
     app = app.subcommand(SubCommand::with_name("test-connection")
+        .arg(Arg::with_name("debug-dump-frames-into-directory")
+            .required(false)
+            .long("debug-dump-frames-into-directory")
+            .takes_value(true)
+            .help("A directory into which to dump all frames in order they arrive, \
+                   differentiating them by their op-code."))
         .arg(Arg::with_name("host")
             .required(true)
             .takes_value(true)

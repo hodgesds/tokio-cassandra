@@ -108,7 +108,7 @@ impl OpCode {
         })
     }
 
-    pub fn to_u8(&self) -> u8 {
+    pub fn as_u8(&self) -> u8 {
         match *self {
             OpCode::Error => 0x00,
             OpCode::Startup => 0x01,
@@ -214,7 +214,7 @@ impl Header {
             let stream_id = &mut buf[2..4];
             BigEndian::write_u16(stream_id, self.stream_id);
         }
-        buf[4] = self.op_code.to_u8();
+        buf[4] = self.op_code.as_u8();
         {
             let length = &mut buf[5..];
             BigEndian::write_u32(length, self.length);
