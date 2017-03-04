@@ -120,6 +120,27 @@ impl CqlCodec {
             debug: debug,
         }
     }
+
+    fn do_debug(&mut self, h: &Header, buf: &EasyBuf, body_len: usize) -> io::Result<()> {
+        if let Some(mut path) = self.debug.dump_frames_into.clone() {
+            path.push(format!("{:02}-{:x}.bytes",
+                              self.debug.decoded_frames_count,
+                              h.op_code.as_u8()));
+            self.debug.decoded_frames_count += 1;
+            let mut f = OpenOptions::new().read(false)
+                .create(true)
+                .write(true)
+                .open(&path)
+                .map_err(|e| {
+                    io_err(format!("Failed to open '{}' for writing with error with error: {:?}",
+                                   path.display(),
+                                   e))
+                })?;
+            f.write_all(&h.encode().expect("header encode to work")[..])?;
+            f.write_all(&buf.as_slice()[..body_len])?;
+        }
+        Ok(())
+    }
 }
 
 type CodecInputFrame = Frame<StreamingMessage, ChunkedMessage, io::Error>;
@@ -155,24 +176,7 @@ impl Codec for CqlCodec {
                     WithHeader { header, .. } => header,
                     _ => unreachable!(),
                 };
-                if let Some(mut path) = self.debug.dump_frames_into.clone() {
-                    path.push(format!("{:02}-{:x}.bytes",
-                                      self.debug.decoded_frames_count,
-                                      h.op_code.as_u8()));
-                    self.debug.decoded_frames_count += 1;
-                    let mut f = OpenOptions::new().read(false)
-                        .create(true)
-                        .write(true)
-                        .open(&path)
-                        .map_err(|e| {
-                            io_err(format!("Failed to open '{}' for writing with error with \
-                                            error: {:?}",
-                                           path.display(),
-                                           e))
-                        })?;
-                    f.write_all(&h.encode().expect("header encode to work")[..])?;
-                    f.write_all(&buf.as_slice()[..body_len])?;
-                }
+                self.do_debug(&h, &buf, body_len)?;
                 /* TODO: implement version mismatch test */
                 let code = h.op_code.clone();
                 let version = h.version.version;
