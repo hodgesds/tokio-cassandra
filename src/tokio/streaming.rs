@@ -132,9 +132,10 @@ impl CqlCodec {
     }
 
     fn debug_path(&mut self, mut path: PathBuf, h: &Header) -> PathBuf {
-        path.push(format!("{:02}-{:x}.bytes",
+        path.push(format!("{:02}-{:02x}_{:?}.bytes",
                           self.debug.frames_count,
-                          h.op_code.as_u8()));
+                          h.op_code.as_u8(),
+                          h.op_code));
         self.debug.frames_count += 1;
         path
     }
