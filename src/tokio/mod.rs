@@ -1,6 +1,6 @@
 mod easy;
 pub mod streaming;
+pub mod ssl;
 mod utils;
-mod ssl;
 
 pub use self::easy::*;

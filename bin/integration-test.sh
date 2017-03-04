@@ -21,11 +21,11 @@ start-dependencies-auth $image
 # YES - there is something async going on, so we have to give it even more time until 
 # it can accept properly authenticated connections
 sleep 1
-$cli test-connection -u cassandra -p cassandra $host $port
+$cli -u cassandra -p cassandra -h $host --port $port test-connection 
 
 # echo ">>>>>>>>>>>>>>>>>>>> TEST CONNECTION: PLAIN"
 start-dependencies-plain $image
-$cli test-connection $host $port
+$cli -h $host --port $port test-connection
 
 # TODO auth + TLS
 

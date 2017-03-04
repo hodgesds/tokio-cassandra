@@ -162,11 +162,13 @@ impl Codec for CqlCodec {
                                       self.debug.decoded_frames_count,
                                       h.op_code.as_u8()));
                     self.debug.decoded_frames_count += 1;
-                    let mut f = OpenOptions::new().read(false).create(true)
+                    let mut f = OpenOptions::new().read(false)
+                        .create(true)
                         .write(true)
                         .open(&path)
                         .map_err(|e| {
-                            io_err(format!("Failed to open '{}' for writing with error with error: {:?}",
+                            io_err(format!("Failed to open '{}' for writing with error with \
+                                            error: {:?}",
                                            path.display(),
                                            e))
                         })?;

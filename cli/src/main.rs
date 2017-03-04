@@ -16,6 +16,7 @@ extern crate env_logger;
 use clap::{SubCommand, Arg};
 
 use tcc::errors::*;
+use tcc::ConnectionOptions;
 
 quick_main!(run);
 
@@ -31,8 +32,7 @@ pub fn run() -> Result<()> {
     let default_cert_type = format!("{}", CertKind::PK12);
 
     let mut app: clap::App = app_from_crate!();
-    app = app.subcommand(SubCommand::with_name("test-connection")
-        .arg(Arg::with_name("debug-dump-frames-into-directory")
+    app = app.arg(Arg::with_name("debug-dump-frames-into-directory")
             .required(false)
             .long("debug-dump-frames-into-directory")
             .takes_value(true)
@@ -41,9 +41,12 @@ pub fn run() -> Result<()> {
         .arg(Arg::with_name("host")
             .required(true)
             .takes_value(true)
+            .long("host")
+            .short("h")
             .help("The name or IP address of the host to connect to."))
         .arg(Arg::with_name("port")
             .required(false)
+            .long("port")
             .default_value("9042")
             .takes_value(true)
             .help("The port to connect to"))
@@ -79,10 +82,13 @@ pub fn run() -> Result<()> {
             .long("cert")
             .help("The path to the certificate file in a format defined by --cert-type. A \
                    password can be provided by separating it with a colon, such as in \
-                   /path/to/cert:password.")));
+                   /path/to/cert:password."))
+        .subcommand(SubCommand::with_name("test-connection"));
     let args: clap::ArgMatches = app.get_matches();
+    let opts = ConnectionOptions::from(&args)?;
+
     match args.subcommand() {
-        ("test-connection", Some(args)) => tcc::test_connection(args),
+        ("test-connection", Some(args)) => tcc::test_connection(opts, args),
         _ => {
             println!("{}", args.usage());
             ::std::process::exit(2);
