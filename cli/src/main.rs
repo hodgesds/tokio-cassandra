@@ -32,9 +32,15 @@ pub fn run() -> Result<()> {
     let default_cert_type = format!("{}", CertKind::PK12);
 
     let mut app: clap::App = app_from_crate!();
-    app = app.arg(Arg::with_name("debug-dump-frames-into-directory")
+    app = app.arg(Arg::with_name("debug-dump-encoded-frames-into-directory")
             .required(false)
-            .long("debug-dump-frames-into-directory")
+            .long("debug-dump-encoded-frames-into-directory")
+            .takes_value(true)
+            .help("A directory into which to dump all frames in order they are sent, \
+                   differentiating them by their op-code."))
+        .arg(Arg::with_name("debug-dump-decoded-frames-into-directory")
+            .required(false)
+            .long("debug-dump-decoded-frames-into-directory")
             .takes_value(true)
             .help("A directory into which to dump all frames in order they arrive, \
                    differentiating them by their op-code."))

@@ -23,8 +23,17 @@ impl ConnectionOptions {
             .chain_err(|| format!("Port '{}' could not be parsed as number", port))?;
         let addr = format!("{}:{}", host, port).parse()
             .chain_err(|| format!("Host '{}' could not be parsed as IP", host))?;
-        let debug = args.value_of("debug-dump-frames-into-directory")
-            .map(|p| CqlCodecDebuggingOptions { dump_frames_into: Some(p.into()), ..Default::default() });
+        let debug = match (args.value_of("debug-dump-encoded-frames-into-directory"),
+                           args.value_of("debug-dump-decoded-frames-into-directory")) {
+            (None, None) => None,
+            (encode_path, decode_path) => {
+                Some(CqlCodecDebuggingOptions {
+                    dump_encoded_frames_into: encode_path.map(Into::into),
+                    dump_decoded_frames_into: decode_path.map(Into::into),
+                    ..Default::default()
+                })
+            }
+        };
 
         let creds = {
             if let (Some(usr), Some(pwd)) = (args.value_of("user"), args.value_of("password")) {

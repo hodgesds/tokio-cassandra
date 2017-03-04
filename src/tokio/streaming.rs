@@ -4,7 +4,7 @@ use codec::header::{Header, ProtocolVersion, Direction};
 use codec::authentication::{Authenticator, Credentials};
 use codec::primitives::{CqlBytes, CqlFrom};
 use std::path::PathBuf;
-use std::fs::OpenOptions;
+use std::fs::{File, OpenOptions};
 use tokio_service::Service;
 use futures::{future, Future};
 use tokio_core::reactor::Handle;
@@ -101,8 +101,9 @@ pub struct CqlCodec {
 
 #[derive(PartialEq, Debug, Clone, Default)]
 pub struct CqlCodecDebuggingOptions {
-    pub dump_frames_into: Option<PathBuf>,
-    pub decoded_frames_count: usize,
+    pub dump_decoded_frames_into: Option<PathBuf>,
+    pub dump_encoded_frames_into: Option<PathBuf>,
+    pub frames_count: usize,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -121,26 +122,44 @@ impl CqlCodec {
         }
     }
 
-    fn do_debug(&mut self, h: &Header, buf: &EasyBuf, body_len: usize) -> io::Result<()> {
-        if let Some(mut path) = self.debug.dump_frames_into.clone() {
-            path.push(format!("{:02}-{:x}.bytes",
-                              self.debug.decoded_frames_count,
-                              h.op_code.as_u8()));
-            self.debug.decoded_frames_count += 1;
-            let mut f = OpenOptions::new().read(false)
-                .create(true)
-                .write(true)
-                .open(&path)
-                .map_err(|e| {
-                    io_err(format!("Failed to open '{}' for writing with error with error: {:?}",
-                                   path.display(),
-                                   e))
-                })?;
+    fn do_encode_debug(&mut self, buf: &Vec<u8>) -> io::Result<()> {
+        if let Some(path) = self.debug.dump_encoded_frames_into.clone() {
+            let h = Header::try_from(buf.as_slice()).expect("header encoded at beginning of buf");
+            let mut f = open_at(self.debug_path(path, &h))?;
+            f.write_all(buf)?;
+        }
+        Ok(())
+    }
+
+    fn debug_path(&mut self, mut path: PathBuf, h: &Header) -> PathBuf {
+        path.push(format!("{:02}-{:x}.bytes",
+                          self.debug.frames_count,
+                          h.op_code.as_u8()));
+        self.debug.frames_count += 1;
+        path
+    }
+
+    fn do_decode_debug(&mut self, h: &Header, buf: &EasyBuf, body_len: usize) -> io::Result<()> {
+        if let Some(path) = self.debug.dump_decoded_frames_into.clone() {
+            let mut f = open_at(self.debug_path(path, h))?;
             f.write_all(&h.encode().expect("header encode to work")[..])?;
             f.write_all(&buf.as_slice()[..body_len])?;
         }
         Ok(())
     }
+}
+
+fn open_at(path: PathBuf) -> io::Result<File> {
+    OpenOptions::new()
+        .read(false)
+        .create(true)
+        .write(true)
+        .open(&path)
+        .map_err(|e| {
+            io_err(format!("Failed to open '{}' for writing with error with error: {:?}",
+                           path.display(),
+                           e))
+        })
 }
 
 type CodecInputFrame = Frame<StreamingMessage, ChunkedMessage, io::Error>;
@@ -176,7 +195,7 @@ impl Codec for CqlCodec {
                     WithHeader { header, .. } => header,
                     _ => unreachable!(),
                 };
-                self.do_debug(&h, &buf, body_len)?;
+                self.do_decode_debug(&h, &buf, body_len)?;
                 /* TODO: implement version mismatch test */
                 let code = h.op_code.clone();
                 let version = h.version.version;
@@ -200,14 +219,17 @@ impl Codec for CqlCodec {
         match msg {
             Frame::Message { id, message, .. } => {
                 debug!("encoded msg: {:?}", message);
+                assert!(buf.len() == 0, "expecting an empty vector here");
+
                 assert_stream_id(id as u16);
-                let msg = cql_encode(self.version,
+                let res = cql_encode(self.version,
                                      self.flags,
                                      id as u16, /* FIXME safe cast */
                                      message,
                                      buf)
                     .map_err(|err| io::Error::new(io::ErrorKind::Other, err));
-                msg
+                self.do_encode_debug(buf)?;
+                res
             }
             Frame::Error { error, .. } => Err(error),
             Frame::Body { .. } => panic!("Streaming of Requests is not currently supported"),
