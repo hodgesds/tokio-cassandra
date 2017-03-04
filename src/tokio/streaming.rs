@@ -66,9 +66,7 @@ impl From<StreamingMessage> for response::Message {
             Error(msg) => response::Message::Error(msg),
             AuthSuccess(msg) => response::Message::AuthSuccess(msg),
             Authenticate(msg) => response::Message::Authenticate(msg),
-            Partial(_) => {
-                panic!("Partials are not suppported - this is just used during handshake")
-            }
+            Partial(_) => panic!("Partials are not suppported - this is just used during handshake"),
         }
     }
 }
@@ -172,6 +170,7 @@ impl Codec for CqlCodec {
                                            path.display(),
                                            e))
                         })?;
+                    f.write_all(&h.encode().expect("header encode to work")[..])?;
                     f.write_all(&buf.as_slice()[..body_len])?;
                 }
                 /* TODO: implement version mismatch test */
@@ -181,9 +180,7 @@ impl Codec for CqlCodec {
                 let msg = Frame::Message {
                     id: h.stream_id as RequestId,
                     /* TODO: verify amount of consumed bytes equals the ones actually parsed */
-                    message: decode_complete_message_by_opcode(version,
-                                                               code,
-                                                               buf.drain_to(body_len))
+                    message: decode_complete_message_by_opcode(version, code, buf.drain_to(body_len))
                         .map_err(|err| io_err(err))?
                         .into(),
                     body: false,
@@ -277,22 +274,22 @@ pub struct Client {
 }
 
 #[cfg(not(feature = "with-openssl"))]
-fn ssl_client(_protocol: CqlProto,
-              _addr: &SocketAddr,
-              _handle: &Handle,
-              _tls: ssl::Options)
-              -> Option<Box<Future<Item = ClientProxy<RequestMessage, ResponseMessage, io::Error>,
-                                   Error = io::Error>>> {
+fn ssl_client
+    (_protocol: CqlProto,
+     _addr: &SocketAddr,
+     _handle: &Handle,
+     _tls: ssl::Options)
+     -> Option<Box<Future<Item = ClientProxy<RequestMessage, ResponseMessage, io::Error>, Error = io::Error>>> {
     None
 }
 
 #[cfg(feature = "with-openssl")]
-fn ssl_client(protocol: CqlProto,
-              addr: &SocketAddr,
-              handle: &Handle,
-              tls: ssl::Options)
-              -> Option<Box<Future<Item = ClientProxy<RequestMessage, ResponseMessage, io::Error>,
-                                   Error = io::Error>>> {
+fn ssl_client
+    (protocol: CqlProto,
+     addr: &SocketAddr,
+     handle: &Handle,
+     tls: ssl::Options)
+     -> Option<Box<Future<Item = ClientProxy<RequestMessage, ResponseMessage, io::Error>, Error = io::Error>>> {
     use super::ssl::ssl_client::SslClient;
     Some(Box::new(SslClient::new(protocol, tls).connect(addr, handle)))
 }
@@ -314,9 +311,7 @@ impl Client {
                 None => Box::new(TcpClient::new(self.protocol).connect(addr, handle)),
             }
             .map(|client_proxy| ClientHandle { inner: Box::new(client_proxy) })
-            .and_then(|client_handle| {
-                client_handle.call(request::Message::Options).map(|r| (r, client_handle))
-            })
+            .and_then(|client_handle| client_handle.call(request::Message::Options).map(|r| (r, client_handle)))
             .map_err(|e| e.into())
             .and_then(|(res, ch)| interpret_response_and_handle(ch, res, creds))
             .and_then(|ch| Ok(ch));
@@ -329,12 +324,8 @@ impl From<CodecInputFrame> for SimpleResponse {
     fn from(f: CodecInputFrame) -> Self {
         match f {
             Frame::Message { id, message, .. } => SimpleResponse(id, message.into()),
-            Frame::Error { .. } => {
-                panic!("Frame errors cannot happen here - this is only done during the handshake")
-            }
-            Frame::Body { .. } => {
-                panic!("Streamed bodies must not happen for the simple responses we expect here")
-            }
+            Frame::Error { .. } => panic!("Frame errors cannot happen here - this is only done during the handshake"),
+            Frame::Body { .. } => panic!("Streamed bodies must not happen for the simple responses we expect here"),
         }
     }
 }
@@ -362,15 +353,13 @@ fn interpret_response_and_handle(handle: ClientHandle,
     match res {
         response::Message::Supported(msg) => {
             let startup = startup_message_from_supported(msg);
-            let f = future::done(startup)
-                .and_then(|s| handle.call(s).map_err(|e| e.into()).map(|r| (r, handle)));
+            let f = future::done(startup).and_then(|s| handle.call(s).map_err(|e| e.into()).map(|r| (r, handle)));
             Box::new(f.and_then(|(res, ch)| interpret_response_and_handle(ch, res, creds))
                 .and_then(|ch| Ok(ch)))
         }
         response::Message::Authenticate(msg) => {
             let auth_response = auth_response_from_authenticate(creds.clone(), msg);
-            let f = future::done(auth_response)
-                .and_then(|s| handle.call(s).map_err(|e| e.into()).map(|r| (r, handle)));
+            let f = future::done(auth_response).and_then(|s| handle.call(s).map_err(|e| e.into()).map(|r| (r, handle)));
             Box::new(f.and_then(|(res, ch)| interpret_response_and_handle(ch, res, creds))
                 .and_then(|ch| Ok(ch)))
         }
@@ -379,9 +368,7 @@ fn interpret_response_and_handle(handle: ClientHandle,
             debug!("Authentication Succeded: {:?}", msg);
             Box::new(future::ok(handle))
         }
-        response::Message::Error(msg) => {
-            Box::new(future::err(ErrorKind::CqlError(msg.code, msg.text.into()).into()))
-        }
+        response::Message::Error(msg) => Box::new(future::err(ErrorKind::CqlError(msg.code, msg.text.into()).into())),
         msg => {
             Box::new(future::err(ErrorKind::HandshakeError(format!("Did not expect to receive \
                                                                     the following message {:?}",
@@ -407,9 +394,7 @@ fn startup_message_from_supported(msg: response::SupportedMessage) -> Result<req
     let startup = {
         request::StartupMessage {
             cql_version: msg.latest_cql_version()
-                .ok_or(ErrorKind::HandshakeError("Expected CQL_VERSION to contain at least one \
-                                                  version"
-                    .into()))?
+                .ok_or(ErrorKind::HandshakeError("Expected CQL_VERSION to contain at least one version".into()))?
                 .clone(),
             compression: None,
         }
@@ -423,13 +408,11 @@ fn auth_response_from_authenticate(creds: Option<Credentials>,
                                    msg: response::AuthenticateMessage)
                                    -> Result<request::Message> {
     let creds =
-        creds.ok_or(ErrorKind::HandshakeError(format!("No credentials provided but server \
-                                                      requires authentication by {}",
+        creds.ok_or(ErrorKind::HandshakeError(format!("No credentials provided but server requires authentication \
+                                                      by {}",
                                                      msg.authenticator.as_ref())))?;
 
-    let authenticator = Authenticator::from_name(msg.authenticator.as_ref(),
-                                                 creds)
-        .chain_err(|| "Authenticator Err")?;
+    let authenticator = Authenticator::from_name(msg.authenticator.as_ref(), creds).chain_err(|| "Authenticator Err")?;
 
     let mut buf = Vec::new();
     authenticator.encode_auth_response(&mut buf);

@@ -158,9 +158,7 @@ pub struct TableSpec {
 }
 
 impl ResultHeader {
-    pub fn decode(_v: ProtocolVersion,
-                  buf: ::tokio_core::io::EasyBuf)
-                  -> Result<Option<ResultHeader>> {
+    pub fn decode(_v: ProtocolVersion, buf: ::tokio_core::io::EasyBuf) -> Result<Option<ResultHeader>> {
 
         if buf.len() < 4 {
             Ok(None)
@@ -168,9 +166,7 @@ impl ResultHeader {
             let (buf, t) = decode::int(buf)?;
             match t {
                 0x0001 => Ok(Some(ResultHeader::Void)),
-                0x0002 => {
-                    Self::match_decode(Self::decode_rows_metadata(buf), |d| ResultHeader::Rows(d))
-                }
+                0x0002 => Self::match_decode(Self::decode_rows_metadata(buf), |d| ResultHeader::Rows(d)),
                 0x0003 => Self::match_decode(decode::string(buf), |s| ResultHeader::SetKeyspace(s)),
                 0x0005 => {
                     Self::match_decode(Self::decode_schema_change(buf),
@@ -271,10 +267,7 @@ mod test {
     fn supported_message_latest_cql_version() {
         let versions = ["3.2.1", "3.1.2", "4.0.1"];
         let vm = CqlStringList::try_from_iter_easy(versions.iter().cloned()).unwrap();
-        let smm = CqlStringMultiMap::try_from_iter(vec![(CqlString::try_from("CQL_VERSION")
-                                                             .unwrap(),
-                                                         vm)])
-            .unwrap();
+        let smm = CqlStringMultiMap::try_from_iter(vec![(CqlString::try_from("CQL_VERSION").unwrap(), vm)]).unwrap();
         let msg = SupportedMessage::from(smm);
 
         assert_eq!(msg.latest_cql_version(),
@@ -287,8 +280,7 @@ mod test {
         let buf = Vec::from(skip_header(&msg[..])).into();
         let res = AuthenticateMessage::decode(Version3, buf).unwrap();
 
-        let authenticator = CqlString::try_from("org.apache.cassandra.auth.PasswordAuthenticator")
-            .unwrap();
+        let authenticator = CqlString::try_from("org.apache.cassandra.auth.PasswordAuthenticator").unwrap();
 
         assert_eq!(res.authenticator, authenticator);
     }

@@ -1,6 +1,5 @@
 use byteorder::{ByteOrder, BigEndian};
-use super::{CqlStringList, CqlLongString, CqlString, CqlBytes, CqlStringMap, CqlStringMultiMap,
-            CqlConsistency};
+use super::{CqlStringList, CqlLongString, CqlString, CqlBytes, CqlStringMap, CqlStringMultiMap, CqlConsistency};
 
 pub fn short(v: u16) -> [u8; 2] {
     let mut bytes = [0u8; 2];

@@ -1,5 +1,5 @@
-use codec::primitives::types::{CqlStringList, CqlString, CqlLongString, CqlStringMap,
-                               CqlStringMultiMap, CqlBytes, CqlConsistency};
+use codec::primitives::types::{CqlStringList, CqlString, CqlLongString, CqlStringMap, CqlStringMultiMap, CqlBytes,
+                               CqlConsistency};
 use std::collections::HashMap;
 use tokio_core::io::EasyBuf;
 use byteorder::{ByteOrder, BigEndian};

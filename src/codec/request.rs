@@ -1,8 +1,7 @@
 use codec::header::{ProtocolVersion, OpCode, Header, Version};
 use std::collections::HashMap;
 
-use codec::primitives::{BVec, CqlConsistency, CqlFrom, CqlStringMap, CqlString, CqlBytes,
-                        CqlLongString};
+use codec::primitives::{BVec, CqlConsistency, CqlFrom, CqlStringMap, CqlString, CqlBytes, CqlLongString};
 use codec::primitives::encode;
 
 error_chain! {
@@ -277,9 +276,7 @@ mod test {
 
         println!("v.len() = {:?}", v.len());
 
-        let o = Message::AuthResponse(AuthResponseMessage {
-            auth_data: CqlBytes::try_from(v).unwrap(),
-        });
+        let o = Message::AuthResponse(AuthResponseMessage { auth_data: CqlBytes::try_from(v).unwrap() });
 
         let mut buf = Vec::new();
         let flags = 0;
@@ -299,8 +296,7 @@ mod test {
 
 
         let o = Message::Query(QueryMessage {
-            query: CqlLongString::try_from("select * from system.local where key = 'local'")
-                .unwrap(),
+            query: CqlLongString::try_from("select * from system.local where key = 'local'").unwrap(),
             values: None,
             consistency: CqlConsistency::One,
             skip_metadata: false,
@@ -351,8 +347,7 @@ mod test {
         let mut buf = Vec::new();
         values.encode(Version3, &mut buf).unwrap();
 
-        let expected = vec![0x00, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x01, 0x00, 0x00, 0x00,
-                            0x02, 0x02, 0x03];
+        let expected = vec![0x00, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x01, 0x00, 0x00, 0x00, 0x02, 0x02, 0x03];
 
         assert_eq!(expected, buf);
     }

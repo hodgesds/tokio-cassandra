@@ -119,8 +119,7 @@ pub struct CqlStringMultiMap<T>
     container: HashMap<CqlString<T>, CqlStringList<T>>,
 }
 
-impl<T> CqlFrom<CqlStringMultiMap<T>, HashMap<CqlString<T>, CqlStringList<T>>>
-    for CqlStringMultiMap<T>
+impl<T> CqlFrom<CqlStringMultiMap<T>, HashMap<CqlString<T>, CqlStringList<T>>> for CqlStringMultiMap<T>
     where T: AsRef<[u8]> + PartialEq + Eq
 {
     unsafe fn unchecked_from(map: HashMap<CqlString<T>, CqlStringList<T>>) -> CqlStringMultiMap<T> {

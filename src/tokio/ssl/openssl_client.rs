@@ -32,8 +32,7 @@ impl<Kind, P> Future for Connect<Kind, P>
     type Error = io::Error;
 
     fn poll(&mut self) -> Poll<P::BindClient, io::Error> {
-        let socket =
-            try_ready!(self.socket.poll().map_err(|e| io::Error::new(io::ErrorKind::Other, e)));
+        let socket = try_ready!(self.socket.poll().map_err(|e| io::Error::new(io::ErrorKind::Other, e)));
         Ok(Async::Ready(self.proto.bind_client(&self.handle, socket)))
     }
 }

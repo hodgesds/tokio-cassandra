@@ -128,11 +128,10 @@ mod test {
 
     #[test]
     fn string_map() {
-        let sm = CqlStringMap::try_from_iter(vec![(CqlString::try_from("a").unwrap(),
-                                                   CqlString::try_from("av").unwrap()),
-                                                  (CqlString::try_from("a").unwrap(),
-                                                   CqlString::try_from("av").unwrap())])
-            .unwrap();
+        let sm =
+            CqlStringMap::try_from_iter(vec![(CqlString::try_from("a").unwrap(), CqlString::try_from("av").unwrap()),
+                                             (CqlString::try_from("a").unwrap(), CqlString::try_from("av").unwrap())])
+                .unwrap();
 
         let mut buf = Vec::new();
         encode::string_map(&sm, &mut buf);
