@@ -53,25 +53,43 @@ impl FromStr for Pk12WithOptionalPassword {
 impl ConnectionOptions {
     pub fn try_from(args: &clap::ArgMatches) -> Result<ConnectionOptions> {
         let host = args.value_of("host").expect("clap to work");
-        let port = args.value_of("port").expect("clap to work");
-        let port: u16 = port.parse()
-            .chain_err(|| format!("Port '{}' could not be parsed as number", port))?;
-        let addr = format!("{}:{}", host, port).parse()
-            .chain_err(|| format!("Host '{}' could not be parsed as IP", host))?;
-        let debug = match (args.value_of("debug-dump-encoded-frames-into-directory"),
-                           args.value_of("debug-dump-decoded-frames-into-directory")) {
-            (None, None) => None,
-            (encode_path, decode_path) => {
-                Some(CqlCodecDebuggingOptions {
-                    dump_encoded_frames_into: encode_path.map(Into::into),
-                    dump_decoded_frames_into: decode_path.map(Into::into),
-                    ..Default::default()
-                })
-            }
-        };
-
-        let creds = {
-            match (args.value_of("user"), args.value_of("password")) {
+        Ok(ConnectionOptions {
+            client: Client {
+                protocol: CqlProto {
+                    version: ProtocolVersion::Version3,
+                    debug: match (args.value_of("debug-dump-encoded-frames-into-directory"),
+                                  args.value_of("debug-dump-decoded-frames-into-directory")) {
+                        (None, None) => None,
+                        (encode_path, decode_path) => {
+                            Some(CqlCodecDebuggingOptions {
+                                dump_encoded_frames_into: encode_path.map(Into::into),
+                                dump_decoded_frames_into: decode_path.map(Into::into),
+                                ..Default::default()
+                            })
+                        }
+                    },
+                },
+            },
+            tls: match args.is_present("tls") {
+                true => {
+                    Some(ssl::Options {
+                        domain: host.into(),
+                        credentials: match args.value_of("cert") {
+                            Some(s) => Some(Pk12WithOptionalPassword::from_str(s)?.into()),
+                            None => None,
+                        },
+                    })
+                }
+                false => None,
+            },
+            addr: {
+                let port = args.value_of("port").expect("clap to work");
+                let port: u16 = port.parse()
+                    .chain_err(|| format!("Port '{}' could not be parsed as number", port))?;
+                format!("{}:{}", host, port).parse()
+                    .chain_err(|| format!("Host '{}' could not be parsed as IP", host))?
+            },
+            creds: match (args.value_of("user"), args.value_of("password")) {
                 (Some(usr), Some(pwd)) => {
                     Some(Credentials::Login {
                         username: usr.to_string(),
@@ -79,32 +97,7 @@ impl ConnectionOptions {
                     })
                 }
                 _ => None,
-            }
-        };
-
-        let tls = match args.is_present("tls") {
-            true => {
-                Some(ssl::Options {
-                    domain: host.into(),
-                    credentials: match args.value_of("cert") {
-                        Some(s) => Some(Pk12WithOptionalPassword::from_str(s)?.into()),
-                        None => None,
-                    },
-                })
-            }
-            false => None,
-        };
-
-        Ok(ConnectionOptions {
-            client: Client {
-                protocol: CqlProto {
-                    version: ProtocolVersion::Version3,
-                    debug: debug,
-                },
             },
-            tls: tls,
-            addr: addr,
-            creds: creds,
         })
     }
 
