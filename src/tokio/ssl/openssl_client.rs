@@ -60,7 +60,7 @@ impl<Kind, P> SslClient<Kind, P>
                     future::done(SslConnectorBuilder::new(SslMethod::tls()))
                         .map_err(io_err)
                         .and_then(move |mut connector| {
-                            let domain = tls.domain.clone();
+                            let domain = tls.domain;
                             future::done(match tls.credentials {
                                     Some(Credentials::Pk12 { contents, passphrase }) => {
                                         Pkcs12::from_der(&contents)
