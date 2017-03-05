@@ -60,22 +60,26 @@ impl<Kind, P> SslClient<Kind, P>
                     future::done(SslConnectorBuilder::new(SslMethod::tls()))
                         .map_err(io_err)
                         .and_then(move |mut connector| {
-                            match tls.credentials {
-                                Some(Credentials::Pk12 { contents, passphrase }) => {
-                                    Pkcs12::from_der(&contents)
-                                        .and_then(|p| p.parse(&passphrase))
-                                        .and_then(|identity| {
-                                            let builder = connector.builder_mut();
-                                            builder.set_private_key(&identity.pkey)
-                                                .and_then(|_| builder.set_certificate(&identity.cert))
-                                        })
-                                        .unwrap();
-                                }
-                                _ => {}
-                            }
-                            let connector = connector.build();
-                            connector.connect_async(&tls.domain, stream)
-                                .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+                            let domain = tls.domain.clone();
+                            future::done(match tls.credentials {
+                                    Some(Credentials::Pk12 { contents, passphrase }) => {
+                                        Pkcs12::from_der(&contents)
+                                            .and_then(|p| p.parse(&passphrase))
+                                            .and_then(|identity| {
+                                                let builder = connector.builder_mut();
+                                                builder.set_private_key(&identity.pkey)
+                                                    .and_then(|_| builder.set_certificate(&identity.cert))
+                                            })
+                                            .map_err(io_err)
+                                            .map(|_| connector)
+                                    }
+                                    _ => Ok(connector),
+                                })
+                                .map(|c| c.build())
+                                .and_then(move |connector| {
+                                    connector.connect_async(&domain, stream)
+                                        .map_err(io_err)
+                                })
                         })
                 }))
             },
