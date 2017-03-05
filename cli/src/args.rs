@@ -1,6 +1,6 @@
 use clap;
 use super::errors::*;
-use std::net::SocketAddr;
+use std::net::{self, SocketAddr};
 use std::str::FromStr;
 use std::fs::File;
 use std::io::Read;
@@ -10,6 +10,7 @@ use tokio_cassandra::ssl;
 use tokio_cassandra::codec::authentication::Credentials;
 use tokio_cassandra::codec::header::ProtocolVersion;
 use tokio_core::reactor::Core;
+use dns_lookup::lookup_host;
 
 pub struct ConnectionOptions {
     pub client: Client,
@@ -76,7 +77,11 @@ impl ConnectionOptions {
                     Some(ssl::Options {
                         domain: host.into(),
                         credentials: match cert {
-                            Some(s) => Some(Pk12WithOptionalPassword::from_str(s)?.into()),
+                            Some(s) => {
+                                Some(Pk12WithOptionalPassword::from_str(s)
+                                    .chain_err(|| format!("Failed to interpret Pk12 file with password from '{}'", s))?
+                                    .into())
+                            }
                             None => None,
                         },
                     })
@@ -87,8 +92,28 @@ impl ConnectionOptions {
                 let port = args.value_of("port").expect("clap to work");
                 let port: u16 = port.parse()
                     .chain_err(|| format!("Port '{}' could not be parsed as number", port))?;
-                format!("{}:{}", host, port).parse()
-                    .chain_err(|| format!("Host '{}' could not be parsed as IP", host))?
+                net::IpAddr::from_str(host).or_else(|parse_err| {
+                        lookup_host(host)
+                            .map_err(|err| {
+                                Error::from_kind(format!("Failed to parse '{}' with error: {:?} and could not lookup \
+                                                          host with error {:?}",
+                                                         host,
+                                                         parse_err,
+                                                         err)
+                                    .into())
+                            })
+                            .and_then(|mut it| {
+                                it.next()
+                                    .ok_or_else(|| {
+                                        Error::from_kind(format!("Not a single IP found for host '{}', even though \
+                                                                  lookup succeeded",
+                                                                 host)
+                                            .into())
+                                    })
+                                    .and_then(|res| res.map_err(Into::into))
+                            })
+                    })
+                    .map(|ip| SocketAddr::new(ip, port))?
             },
             creds: match (args.value_of("user"), args.value_of("password")) {
                 (Some(usr), Some(pwd)) => {
