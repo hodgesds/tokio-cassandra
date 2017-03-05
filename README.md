@@ -38,7 +38,7 @@ A Cassandra Native Protocol 3 implementation using Tokio for IO.
   * [ ] with-TLS
   * [ ] choice of cql version to use
   * [ ] choice of which protocol version to use
-  * [ ] host-name resolution
+  * [x] host-name resolution
   * [x] use latest-supported cql version
 
 ## [Library](https://github.com/nhellwig/tokio-cassandra/projects/2)
