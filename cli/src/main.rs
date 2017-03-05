@@ -79,6 +79,7 @@ pub fn run() -> Result<()> {
             .required(false)
             .takes_value(true)
             .long("cert-type")
+            .possible_values(&CertKind::variants())
             .default_value(&default_cert_type)
             .help("Encrypt the connection via TLS. This will never connect via plain-text, \
                    even if the server supports that too."))

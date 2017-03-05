@@ -36,14 +36,24 @@ impl ConnectionOptions {
         };
 
         let creds = {
-            if let (Some(usr), Some(pwd)) = (args.value_of("user"), args.value_of("password")) {
-                Some(Credentials::Login {
-                    username: usr.to_string(),
-                    password: pwd.to_string(),
-                })
-            } else {
-                None
+            match (args.value_of("user"), args.value_of("password")) {
+                (Some(usr), Some(pwd)) => {
+                    Some(Credentials::Login {
+                        username: usr.to_string(),
+                        password: pwd.to_string(),
+                    })
+                }
+                _ => None,
             }
+        };
+
+        let tls = if args.is_present("tls") {
+            Some(ssl::Options {
+                domain: host.into(),
+                credentials: None,
+            })
+        } else {
+            None
         };
 
         Ok(ConnectionOptions {
@@ -53,7 +63,7 @@ impl ConnectionOptions {
                     debug: debug,
                 },
             },
-            tls: None,
+            tls: tls,
             addr: addr,
             creds: creds,
         })
