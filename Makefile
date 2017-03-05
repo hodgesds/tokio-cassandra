@@ -9,7 +9,7 @@ help:
 	$(info Available Targets)
 	$(info ---------------------------------------------------------------------------------------------------------------)
 	$(info toc              | generate table of contents for README.md via doctoc)
-	$(info unit-tests       | Run tests that don't need a cassandra node running)
+	$(info unit-tests       | Run tests that don`t need a cassandra node running)
 	$(info integration-tests| Run tests that use a cassandra node)
 	$(info -- DEBUGGING --------------------------------------------------------------------------------------------------)
 	$(info cli-tests        | Run the cli with certain arguments to help debugging - needs <some>-docker-db)
@@ -19,6 +19,7 @@ help:
 	$(info auth-docker-db   | Bring up a backgrounded cassandra database for local usage on 9042, optional TLS, requiring authentication)
 	$(info cert-docker-db   | Bring up a backgrounded cassandra database for local usage on 9042, requiring the client to show a certificate)
 	$(info attach-docker-db | run cassandra in foreground run with type=(tls|auth|plain))
+	$(info fuzz             | try to run cargo-fuzz on the decoder)
 
 toc:
 	doctoc --github --title "A Cassandra Native Protocol 3 implementation using Tokio for IO." README.md
@@ -56,3 +57,11 @@ $(DB_IMAGE_OK): $(shell find etc/docker-cassandra -type f) bin/build-image.sh
 	bin/build-image.sh etc/docker-cassandra $(DB_IMAGE_NAME)
 	@touch $(DB_IMAGE_OK)
 
+always-update:
+	
+.cargo-fuzz:
+	git clone https://github.com/byron/cargo-fuzz $@
+	$(MAKE) -C $@/etc/docker build
+	
+fuzz: always-update .cargo-fuzz
+	docker run -v $$PWD:/source cargo-fuzz cargo fuzz run decoder

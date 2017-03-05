@@ -113,7 +113,7 @@ enum Machine {
 }
 
 impl CqlCodec {
-    fn new(v: ProtocolVersion, debug: CqlCodecDebuggingOptions) -> Self {
+    pub fn new(v: ProtocolVersion, debug: CqlCodecDebuggingOptions) -> Self {
         CqlCodec {
             state: Machine::NeedHeader,
             flags: 0,

@@ -8,3 +8,4 @@ Cargo.lock
 .docker-cassandra/
 tests/fixtures/index-bare/
 tests/fixtures/index/
+.cargo-fuzz/
