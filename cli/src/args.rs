@@ -75,7 +75,13 @@ impl ConnectionOptions {
                 (true, cert) |
                 (false, cert @ Some(_)) => {
                     Some(ssl::Options {
-                        domain: host.into(),
+                        domain: match net::IpAddr::from_str(host) {
+                            Ok(_) => {
+                                bail!(format!("When using TLS, the host name must not be an IP address, got '{}'",
+                                              host))
+                            }
+                            Err(_) => host.into(),
+                        },
                         credentials: match cert {
                             Some(s) => {
                                 Some(Pk12WithOptionalPassword::from_str(s)
