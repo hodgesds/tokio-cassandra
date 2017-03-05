@@ -70,17 +70,18 @@ impl ConnectionOptions {
                     },
                 },
             },
-            tls: match args.is_present("tls") {
-                true => {
+            tls: match (args.is_present("tls"), args.value_of("cert")) {
+                (true, cert) |
+                (false, cert @ Some(_)) => {
                     Some(ssl::Options {
                         domain: host.into(),
-                        credentials: match args.value_of("cert") {
+                        credentials: match cert {
                             Some(s) => Some(Pk12WithOptionalPassword::from_str(s)?.into()),
                             None => None,
                         },
                     })
                 }
-                false => None,
+                _ => None,
             },
             addr: {
                 let port = args.value_of("port").expect("clap to work");
