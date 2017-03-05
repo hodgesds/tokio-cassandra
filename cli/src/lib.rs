@@ -18,6 +18,13 @@ pub mod errors {
             AddrParse(AddrParseError);
             Other(io::Error);
         }
+
+       errors {
+            Pk12PathFormat(s: String) {
+                description("Could not parse pk12 file path description: <path>:<password> is required")
+                display("Failed to parse '{}' as <path>:<password>", s)
+            }
+        }
     }
 }
 

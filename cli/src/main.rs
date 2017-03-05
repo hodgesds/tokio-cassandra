@@ -92,7 +92,7 @@ pub fn run() -> Result<()> {
                    /path/to/cert:password."))
         .subcommand(SubCommand::with_name("test-connection"));
     let args: clap::ArgMatches = app.get_matches();
-    let opts = ConnectionOptions::from(&args)?;
+    let opts = ConnectionOptions::try_from(&args)?;
 
     match args.subcommand() {
         ("test-connection", Some(args)) => tcc::test_connection(opts, args),
