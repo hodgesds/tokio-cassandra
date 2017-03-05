@@ -7,7 +7,8 @@ use tokio_proto::BindClient;
 use tokio_core::reactor::Handle;
 use tokio_core::net::TcpStream;
 use tokio_openssl::{SslStream, SslConnectorExt};
-use futures::{Future, Poll, Async};
+use tokio::utils::io_err;
+use futures::{Future, Poll, Async, future};
 use openssl::ssl::{SslMethod, SslConnectorBuilder};
 
 use super::Options;
@@ -15,7 +16,7 @@ use super::Options;
 pub struct SslClient<Kind, P> {
     _kind: PhantomData<Kind>,
     proto: Arc<P>,
-    _tls: Options,
+    tls: Options,
 }
 
 pub struct Connect<Kind, P> {
@@ -40,11 +41,11 @@ impl<Kind, P> Future for Connect<Kind, P>
 impl<Kind, P> SslClient<Kind, P>
     where P: BindClient<Kind, SslStream<TcpStream>>
 {
-    pub fn new(protocol: P, _tls: Options) -> SslClient<Kind, P> {
+    pub fn new(protocol: P, tls: Options) -> SslClient<Kind, P> {
         SslClient {
             _kind: PhantomData,
             proto: Arc::new(protocol),
-            _tls: _tls,
+            tls: tls,
         }
     }
 
@@ -54,9 +55,13 @@ impl<Kind, P> SslClient<Kind, P>
             proto: self.proto.clone(),
             socket: {
                 Box::new(TcpStream::connect(addr, handle).and_then(|stream| {
-                    let connector = SslConnectorBuilder::new(SslMethod::tls()).unwrap().build();
-                    connector.connect_async("google", stream)
-                        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+                    future::done(SslConnectorBuilder::new(SslMethod::tls()))
+                        .map_err(io_err)
+                        .and_then(|connector| {
+                            let connector = connector.build();
+                            connector.connect_async("google", stream)
+                                .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
+                        })
                 }))
             },
             handle: handle.clone(),

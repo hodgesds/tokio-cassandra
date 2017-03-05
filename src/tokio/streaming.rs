@@ -205,7 +205,7 @@ impl Codec for CqlCodec {
                     id: h.stream_id as RequestId,
                     /* TODO: verify amount of consumed bytes equals the ones actually parsed */
                     message: decode_complete_message_by_opcode(version, code, buf.drain_to(body_len))
-                        .map_err(|err| io_err(err))?
+                        .map_err(io_err)?
                         .into(),
                     body: false,
                     solo: false,
@@ -228,7 +228,7 @@ impl Codec for CqlCodec {
                                      id as u16, /* FIXME safe cast */
                                      message,
                                      buf)
-                    .map_err(|err| io::Error::new(io::ErrorKind::Other, err));
+                    .map_err(io_err);
                 self.do_encode_debug(buf)?;
                 res
             }
