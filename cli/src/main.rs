@@ -83,6 +83,12 @@ pub fn run() -> Result<()> {
             .default_value(&default_cert_type)
             .help("Encrypt the connection via TLS. This will never connect via plain-text, \
                    even if the server supports that too."))
+        .arg(Arg::with_name("ca-file")
+            .required(false)
+            .takes_value(true)
+            .long("ca-file")
+            .help("A PEM file with one or more certificates to use when trusting other entities. Can be used to \
+                   trust self-signed server certificates for example."))
         .arg(Arg::with_name("cert")
             .required(false)
             .takes_value(true)

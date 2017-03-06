@@ -92,6 +92,7 @@ impl<Kind, P> SslClient<Kind, P>
                                     Some(fp) => {
                                         connector.builder_mut()
                                             .set_ca_file(&fp)
+                                            .map_err(|e| format!("Failed to use certificate-authority file at '{}' with error: {}", fp, e))
                                             .map_err(io_err)
                                             .map(|_| connector)
                                     }

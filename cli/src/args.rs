@@ -82,9 +82,10 @@ impl ConnectionOptions {
                     },
                 },
             },
-            tls: match (args.is_present("tls"), args.value_of("cert")) {
-                (true, cert) |
-                (false, cert @ Some(_)) => {
+            tls: match (args.is_present("tls"), args.value_of("cert"), args.value_of("ca-file")) {
+                (true, cert, ca_file) |
+                (false, cert @ Some(_), ca_file) |
+                (false, cert, ca_file @ Some(_)) => {
                     Some(ssl::Options {
                         domain: match net::IpAddr::from_str(host) {
                             Ok(ip) => {
@@ -101,6 +102,7 @@ impl ConnectionOptions {
                             }
                             None => None,
                         },
+                        certificate_authority_file: ca_file.map(String::from),
                     })
                 }
                 _ => None,
