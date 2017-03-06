@@ -1,7 +1,8 @@
 #!/bin/bash
 CONTAINER_NAME=db
 CASSANDRA_PORT=9042
-CASSANDRA_HOST=127.0.0.1
+CASSANDRA_HOST_IP=127.0.0.1
+CASSANDRA_HOST_NAME=localhost
 
 read -r -d '' ENV_FILE <<EOF
 CASSANDRA_ENABLE_SSL=true
@@ -37,12 +38,12 @@ start-dependencies() {
 		daemonize=''
 	fi
 	docker rm --force $CONTAINER_NAME || true;
-	docker run --name "$CONTAINER_NAME" --env-file <(echo "$ENV_FILE") $ADD_ARGS $daemonize -p "$CASSANDRA_HOST":"$CASSANDRA_PORT":9042 --expose 9042 $IMAGE_NAME 1>&2 || exit $?
+	docker run --name "$CONTAINER_NAME" --env-file <(echo "$ENV_FILE") $ADD_ARGS $daemonize -p "$CASSANDRA_HOST_IP":"$CASSANDRA_PORT":9042 --expose 9042 $IMAGE_NAME 1>&2 || exit $?
 	
 	if [ "$debug_mode" = false ]; then
 		local retries_left=15
-		while ! $TESTER "$CASSANDRA_HOST" "$CASSANDRA_PORT" && [ $retries_left != 0 ]; do
-			echo "Waiting for cassandra on $CASSANDRA_HOST:$CASSANDRA_PORT, retries-left=$retries_left" 1>&2
+		while ! $TESTER "$CASSANDRA_HOST_NAME" "$CASSANDRA_PORT" && [ $retries_left != 0 ]; do
+			echo "Waiting for cassandra on $CASSANDRA_HOST_NAME:$CASSANDRA_PORT, retries-left=$retries_left" 1>&2
 			sleep 2
 			((retries_left-=1))
 		done
@@ -50,7 +51,7 @@ start-dependencies() {
 			echo "Could not connect to cassandra - may be a problem with '$TESTER', or cassandra itself" 1>&2
 			return 3
 		fi
-		echo "Cassandra up on $CASSANDRA_HOST:$CASSANDRA_PORT" 1>&2
+		echo "Cassandra up on $CASSANDRA_HOST_NAME:$CASSANDRA_PORT" 1>&2
 	fi
 }
 
