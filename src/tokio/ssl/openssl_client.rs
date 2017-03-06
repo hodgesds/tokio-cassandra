@@ -12,7 +12,7 @@ use futures::{Future, Poll, Async, future};
 use openssl::pkcs12::Pkcs12;
 use openssl::ssl::{SslMethod, SslConnectorBuilder};
 
-use super::{Credentials, Options};
+use super::{Credentials, Options, EasyConfiguration};
 
 pub struct SslClient<Kind, P> {
     _kind: PhantomData<Kind>,
@@ -56,17 +56,22 @@ impl<Kind, P> SslClient<Kind, P>
             proto: self.proto.clone(),
             socket: {
                 let tls = self.tls.clone();
-                Box::new(TcpStream::connect(addr, handle).and_then(|stream| {
-                    future::done(SslConnectorBuilder::new(SslMethod::tls()))
-                        .map_err(io_err)
+                Box::new(TcpStream::connect(addr, handle).and_then(move |stream| {
+                    use super::Configuration::*;
+                    let domain = tls.domain.clone();
+                    match tls.configuration {
+                            Predefined(options) => {
+                                let connector = SslConnectorBuilder::new(SslMethod::tls())
+                                    .map_err(io_err)
+                                    .and_then(|connector| setup_connector(connector, options))
+                                    .map(|c| c.build());
+                                future::done(connector)
+                            }
+                            Custom(connector) => future::finished(connector),
+                        }
                         .and_then(move |connector| {
-                            let domain = tls.domain.clone();
-                            future::done(setup_connector(connector, tls))
-                                .map(|c| c.build())
-                                .and_then(move |connector| {
-                                    connector.connect_async(&domain, stream)
-                                        .map_err(io_err)
-                                })
+                            connector.connect_async(&domain, stream)
+                                .map_err(io_err)
                         })
                 }))
             },
@@ -75,7 +80,9 @@ impl<Kind, P> SslClient<Kind, P>
     }
 }
 
-fn setup_connector(mut connector: SslConnectorBuilder, tls: Options) -> Result<SslConnectorBuilder, io::Error> {
+fn setup_connector(mut connector: SslConnectorBuilder,
+                   tls: EasyConfiguration)
+                   -> Result<SslConnectorBuilder, io::Error> {
     if let Some(Credentials::Pk12 { contents, passphrase }) = tls.credentials {
         Pkcs12::from_der(&contents).and_then(|p| p.parse(&passphrase))
             .and_then(|identity| {

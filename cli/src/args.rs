@@ -94,15 +94,20 @@ impl ConnectionOptions {
                             }
                             Err(_) => host.into(),
                         },
-                        credentials: match cert {
-                            Some(s) => {
-                                Some(Pk12WithOptionalPassword::from_str(s)
-                                    .chain_err(|| format!("Failed to interpret Pk12 file with password from '{}'", s))?
-                                    .into())
-                            }
-                            None => None,
-                        },
-                        certificate_authority_file: ca_file.map(String::from),
+
+                        configuration: ssl::Configuration::Predefined(ssl::EasyConfiguration {
+                            credentials: match cert {
+                                Some(s) => {
+                                    Some(Pk12WithOptionalPassword::from_str(s)
+                                        .chain_err(|| {
+                                            format!("Failed to interpret Pk12 file with password from '{}'", s)
+                                        })?
+                                        .into())
+                                }
+                                None => None,
+                            },
+                            certificate_authority_file: ca_file.map(String::from),
+                        }),
                     })
                 }
                 _ => None,

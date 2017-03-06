@@ -60,7 +60,7 @@ A Cassandra Native Protocol 3 implementation using Tokio for IO.
     * [x] plain with standard system trusted certificates, or as specified via SSL_CERT_FILE environment variable
     * [x] with certificate-authority file for self-signed certificates
     * [x] with client certificate
-    * [ ] with custom openssl configuration
+    * [x] with custom openssl configuration
 * **Connection**
   * [x] unauthenticated
   * [x] [authenticated](https://github.com/nhellwig/tokio-cassandra/issues/7)
