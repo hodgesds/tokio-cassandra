@@ -5,9 +5,6 @@ image=${2:?Please provide the image name for the cassandra database}
 
 source "$(dirname $0)/../lib/utilities.sh"
 
-# More verbosity on travis for now
-[ -n "$TRAVIS" ] && set -x
-
 set -eu
 port=$CASSANDRA_PORT
 host=$CASSANDRA_HOST_NAME
