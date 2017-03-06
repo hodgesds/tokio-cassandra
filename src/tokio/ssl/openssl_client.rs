@@ -76,45 +76,36 @@ impl<Kind, P> SslClient<Kind, P>
 }
 
 fn setup_connector(mut connector: SslConnectorBuilder, tls: Options) -> Result<SslConnectorBuilder, io::Error> {
-    let ca_file = tls.certificate_authority_file;
-    match tls.credentials {
-            Some(Credentials::Pk12 { contents, passphrase }) => {
-                Pkcs12::from_der(&contents)
-                    .and_then(|p| p.parse(&passphrase))
-                    .and_then(|identity| {
-                        let builder = connector.builder_mut();
-                        builder.set_private_key(&identity.pkey)
-                            .and_then(|_| builder.set_certificate(&identity.cert))
-                            .and_then(|_| builder.check_private_key())
-                            .and_then(move |_| {
-                                // TODO: remove this once this is available upstream:
-                                // https://github.com/sfackler/rust-openssl/pull/592
-                                if identity.chain.len() as isize == -1 {
-                                    return Ok(());
-                                }
-                                for cert in identity.chain {
-                                    builder.add_extra_chain_cert(cert)?
-                                }
-                                Ok(())
-                            })
+    if let Some(Credentials::Pk12 { contents, passphrase }) = tls.credentials {
+        Pkcs12::from_der(&contents).and_then(|p| p.parse(&passphrase))
+            .and_then(|identity| {
+                let builder = connector.builder_mut();
+                builder.set_private_key(&identity.pkey)
+                    .and_then(|_| builder.set_certificate(&identity.cert))
+                    .and_then(|_| builder.check_private_key())
+                    .and_then(move |_| {
+                        // TODO: remove this once this is available upstream:
+                        // https://github.com/sfackler/rust-openssl/pull/592
+                        if identity.chain.len() as isize == -1 {
+                            return Ok(());
+                        }
+                        for cert in identity.chain {
+                            builder.add_extra_chain_cert(cert)?
+                        }
+                        Ok(())
                     })
-                    .map_err(io_err)
-                    .map(|_| connector)
-            }
-            _ => Ok(connector),
-        }
-        .and_then(move |mut connector| match ca_file {
-            Some(fp) => {
-                connector.builder_mut()
-                    .set_ca_file(&fp)
-                    .map_err(|e| {
-                        format!("Failed to use certificate-authority file at '{}' with error: {}",
-                                fp,
-                                e)
-                    })
-                    .map_err(io_err)
-                    .map(|_| connector)
-            }
-            None => Ok(connector),
-        })
+            })
+            .map_err(io_err)?;
+    }
+    if let Some(fp) = tls.certificate_authority_file {
+        connector.builder_mut()
+            .set_ca_file(&fp)
+            .map_err(|e| {
+                format!("Failed to use certificate-authority file at '{}' with error: {}",
+                        fp,
+                        e)
+            })
+            .map_err(io_err)?
+    }
+    Ok(connector)
 }
