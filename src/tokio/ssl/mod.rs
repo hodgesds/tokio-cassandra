@@ -5,6 +5,9 @@ pub struct Options {
     /// `node01.cas.domain.com` would have `domain.com` as domain name.
     pub domain: String,
 
+    /// The Path to the CA file containing trusted certificates. It can be used to trust self-signed
+    /// or otherwise untrusted certificates.
+    pub certificate_authority_file: Option<String>,
     pub credentials: Option<Credentials>,
 }
 

@@ -61,7 +61,8 @@ impl<Kind, P> SslClient<Kind, P>
                         .map_err(io_err)
                         .and_then(move |mut connector| {
                             let domain = tls.domain;
-                            future::done(match tls.credentials {
+                            let ca_file = tls.certificate_authority_file;
+                            let res = match tls.credentials {
                                     Some(Credentials::Pk12 { contents, passphrase }) => {
                                         Pkcs12::from_der(&contents)
                                             .and_then(|p| p.parse(&passphrase))
@@ -86,7 +87,17 @@ impl<Kind, P> SslClient<Kind, P>
                                             .map(|_| connector)
                                     }
                                     _ => Ok(connector),
-                                })
+                                }
+                                .and_then(move |mut connector| match ca_file {
+                                    Some(fp) => {
+                                        connector.builder_mut()
+                                            .set_ca_file(&fp)
+                                            .map_err(io_err)
+                                            .map(|_| connector)
+                                    }
+                                    None => Ok(connector),
+                                });
+                            future::done(res)
                                 .map(|c| c.build())
                                 .and_then(move |connector| {
                                     connector.connect_async(&domain, stream)
