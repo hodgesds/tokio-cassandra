@@ -30,12 +30,12 @@ A Cassandra Native Protocol 3 implementation using Tokio for IO.
 * library supports basic queries without UDTs and can provide the result via an unauthenticated and unencrypted connection.
 * a CLI allows to perform such a query, and output results in JSON format.
 
-# Status
+# Status (Incubating)
 ## [Commandline Interface](https://github.com/nhellwig/tokio-cassandra/projects/1)
-* **any connection**
+* **Any Connection**
   * [x] unauthenticated
   * [x] authenticated
-  * **with TLS**
+  * **TLS**
     * [x] plain with standard system trusted certificates, or as specified via SSL_CERT_FILE environment variable
     * [x] with explicit certificate authority file for self-signed server certificates
     * [x] with client certificate
@@ -43,12 +43,19 @@ A Cassandra Native Protocol 3 implementation using Tokio for IO.
   * [ ] choice of which protocol version to use
   * [x] host-name resolution
   * [x] use latest-supported cql version
-* [x] **test connection** - connect without issuing any query
 * [x] **debugging** - dump received and sent frames to disk
+* **Subcommands**
+  * [x] **test connection** - connect without issuing any query
+  * [ ] **query** - emit a cql query and view the result
 
 ## [Library](https://github.com/nhellwig/tokio-cassandra/projects/2)
 * **Architecture and API**
-  * [x] multi-protocol-version support
+  * [x] multi-protocol-version support.
+  * [x] async API via [tokio + futures](https://tokio.rs), leveraging Rusts async-ecosystem to the fullest.
+  * [x] optional TLS support with choice at runtime, incl. feature-flag to avoid openssl dependency. Clients don't have to bother about TLS if they don't use it.
+  * [x] zero-copy when deserializing (but meta-data is stored in vecs/hashmaps).
+  * [x] streaming of possibly large query-results via [`futures::stream`](https://tokio.rs/docs/getting-started/streams-and-sinks) for lowest possible time to first row and reduced memory footprint.
+  * [x] zero-overhead serialization of requests as they are encoded directly into the buffer to be sent over the wire.
 * **Protocol Versions**
   * [ ] v3
   * [ ] v4
@@ -56,14 +63,14 @@ A Cassandra Native Protocol 3 implementation using Tokio for IO.
   * **Multiplexed**
     * [x] non-streaming
     * [x] streaming - for types that can be large
-  * [x] **Encrypted via TLS**
+  * **Encrypted via TLS**
     * [x] plain with standard system trusted certificates, or as specified via SSL_CERT_FILE environment variable
     * [x] with certificate-authority file for self-signed certificates
     * [x] with client certificate
     * [x] with custom openssl configuration
 * **Connection**
   * [x] unauthenticated
-  * [x] [authenticated](https://github.com/nhellwig/tokio-cassandra/issues/7)
+  * [x] authenticated
 * **Codec V3**
   * [x] frame-header
   * **Message Data Types (MDT)**
@@ -76,7 +83,7 @@ A Cassandra Native Protocol 3 implementation using Tokio for IO.
     * [ ] [option](https://github.com/nhellwig/tokio-cassandra/projects/2#card-1774765)
     * [ ] [option list](https://github.com/nhellwig/tokio-cassandra/projects/2#card-1774766)
     * [ ] [inet](https://github.com/nhellwig/tokio-cassandra/projects/2#card-1774767)
-    * [x] [consistency](https://github.com/nhellwig/tokio-cassandra/projects/2#card-1774768)
+    * [x] consistency
     * [x] string map
     * [x] string multi-map
   * **Messages**
