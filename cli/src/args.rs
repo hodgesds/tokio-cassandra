@@ -1,7 +1,7 @@
 use clap;
 use super::errors::*;
 use std::net::{self, SocketAddr};
-use std::str::FromStr;
+use std::str::{self, FromStr};
 use std::fs::File;
 use std::io::Read;
 use futures::Future;
@@ -36,18 +36,22 @@ impl From<Pk12WithOptionalPassword> for ssl::Credentials {
 impl FromStr for Pk12WithOptionalPassword {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self> {
-        use std::str;
-        let t: Vec<&[u8]> = s.as_bytes().splitn(2, |&b| b == b':').collect();
-        if t.len() != 2 {
-            bail!(ErrorKind::Pk12PathFormat(s.into()))
+        let mut it = s.as_bytes().splitn(2, |&b| b == b':');
+        match (it.next(), it.next()) {
+            (Some(fp), Some(password)) => {
+                let fp = str::from_utf8(fp).expect("str -> bytes -> str to work");
+                let mut buf = Vec::new();
+                File::open(fp).chain_err(|| format!("Failed to open file at '{}'", fp))?.read_to_end(&mut buf)?;
+                Ok(Pk12WithOptionalPassword {
+                    content: buf,
+                    password: str::from_utf8(password).expect("str -> bytes -> str to work").into(),
+                })
+            }
+            _ => {
+                bail!(ErrorKind::Pk12PathFormat(format!("Need two tokens formatted like <path>:<password>, got '{}'",
+                                                        s)))
+            }
         }
-        let fp = str::from_utf8(t[0]).expect("str -> bytes -> str to work");
-        let mut buf = Vec::new();
-        File::open(fp).chain_err(|| format!("Failed to open file at '{}'", fp))?.read_to_end(&mut buf)?;
-        Ok(Pk12WithOptionalPassword {
-            content: buf,
-            password: str::from_utf8(t[1]).expect("str -> bytes -> str to work").into(),
-        })
     }
 }
 
@@ -76,9 +80,9 @@ impl ConnectionOptions {
                 (false, cert @ Some(_)) => {
                     Some(ssl::Options {
                         domain: match net::IpAddr::from_str(host) {
-                            Ok(_) => {
-                                bail!(format!("When using TLS, the host name must not be an IP address, got '{}'",
-                                              host))
+                            Ok(ip) => {
+                                bail!(format!("When using TLS, the host name must not be an IP address, got {}",
+                                              ip))
                             }
                             Err(_) => host.into(),
                         },

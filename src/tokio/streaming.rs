@@ -301,24 +301,23 @@ pub struct Client {
 }
 
 #[cfg(not(feature = "with-openssl"))]
-fn ssl_client
-    (_protocol: CqlProto,
-     _addr: &SocketAddr,
-     _handle: &Handle,
-     _tls: ssl::Options)
-     -> Option<Box<Future<Item = ClientProxy<RequestMessage, ResponseMessage, io::Error>, Error = io::Error>>> {
-    None
+fn ssl_client(_protocol: CqlProto,
+              _addr: &SocketAddr,
+              _handle: &Handle,
+              _tls: ssl::Options)
+              -> Box<Future<Item = ClientProxy<RequestMessage, ResponseMessage, io::Error>, Error = io::Error>> {
+    Box::new(future::err(io_err("Please compile this library with \
+                                                     --features=ssl")))
 }
 
 #[cfg(feature = "with-openssl")]
-fn ssl_client
-    (protocol: CqlProto,
-     addr: &SocketAddr,
-     handle: &Handle,
-     tls: ssl::Options)
-     -> Option<Box<Future<Item = ClientProxy<RequestMessage, ResponseMessage, io::Error>, Error = io::Error>>> {
+fn ssl_client(protocol: CqlProto,
+              addr: &SocketAddr,
+              handle: &Handle,
+              tls: ssl::Options)
+              -> Box<Future<Item = ClientProxy<RequestMessage, ResponseMessage, io::Error>, Error = io::Error>> {
     use super::ssl::ssl_client::SslClient;
-    Some(Box::new(SslClient::new(protocol, tls).connect(addr, handle)))
+    Box::new(SslClient::new(protocol, tls).connect(addr, handle))
 }
 
 impl Client {
@@ -329,12 +328,7 @@ impl Client {
                    tls: Option<ssl::Options>)
                    -> Box<Future<Item = ClientHandle, Error = Error>> {
         let ret = match tls {
-                Some(tls) => {
-                    ssl_client(self.protocol, addr, handle, tls).unwrap_or_else(|| {
-                        Box::new(future::err(io_err("Please compile this library with \
-                                                     --features=ssl")))
-                    })
-                }
+                Some(tls) => ssl_client(self.protocol, addr, handle, tls),
                 None => Box::new(TcpClient::new(self.protocol).connect(addr, handle)),
             }
             .map(|client_proxy| ClientHandle { inner: Box::new(client_proxy) })
