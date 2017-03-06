@@ -38,7 +38,7 @@ A Cassandra Native Protocol 3 implementation using Tokio for IO.
   * **with TLS**
     * [x] plain with standard system trusted certificates, or as specified via SSL_CERT_FILE environment variable
     * [x] with explicit certificate authority file for self-signed server certificates
-    * [ ] with-TLS and certificate
+    * [x] with client certificate
   * [ ] choice of cql version to use
   * [ ] choice of which protocol version to use
   * [x] host-name resolution
@@ -59,7 +59,7 @@ A Cassandra Native Protocol 3 implementation using Tokio for IO.
   * [x] **Encrypted via TLS**
     * [x] plain with standard system trusted certificates, or as specified via SSL_CERT_FILE environment variable
     * [x] with certificate-authority file for self-signed certificates
-    * [ ] with client certificate
+    * [x] with client certificate
     * [ ] with custom openssl configuration
 * **Connection**
   * [x] unauthenticated

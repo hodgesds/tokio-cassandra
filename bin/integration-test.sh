@@ -14,9 +14,11 @@ host=$CASSANDRA_HOST_NAME
 ip=$CASSANDRA_HOST_IP
 set +u
 
-ca_file=./etc/docker-cassandra/secrets/keystore.cer.pem
+ca_file_args="--ca-file ./etc/docker-cassandra/secrets/keystore.cer.pem"
 con_ip_args="-h $ip --port $port"
 con_host_args="-h $host --port $port"
+
+trap stop-dependencies 0 1 2 5 15
 
 #########################################################################
 echo ">>>>>>>>>>>>>>>>>>>> TEST CONNECTION: PLAIN           <<<<<<<<<<<<<"
@@ -27,10 +29,10 @@ set -x
 $cli $con_ip_args test-connection
 $cli $con_host_args test-connection
 
-$cli $con_ip_args --tls --ca-file $ca_file  test-connection \
+$cli $con_ip_args --tls $ca_file_args  test-connection \
   && { echo "should not connect if ip is set when using tls - verification must fail"; exit 1; }
-$cli $con_host_args --tls --ca-file $ca_file  test-connection 
-$cli $con_host_args --ca-file $ca_file  test-connection \
+$cli $con_host_args --tls $ca_file_args  test-connection 
+$cli $con_host_args $ca_file_args  test-connection \
   || { echo "should imply tls if CA-file is specified"; exit 2; }
 $cli $con_host_args --tls test-connection \
   && { echo "should fail TLS hostname verification on self-signed cert by default"; exit 3; }
@@ -39,25 +41,32 @@ set +x
 #########################################################################
 echo ">>>>>>>>>>>>>>>>>>>> TEST CONNECTION: WITH-AUTHENTICATION <<<<<<<<"
 #########################################################################
-trap stop-dependencies 0 1 2 5 15
 start-dependencies-auth $image
 # YES - there is something async going on, so we have to give it even more time until 
 # it can accept properly authenticated connections
 sleep 1
 
 auth_args="-u cassandra -p cassandra" 
-tls_with_trust="--ca-file $ca_file"
 
 set -x
 $cli $auth_args $con_ip_args test-connection
-$cli $auth_args $con_host_args $tls_with_trust test-connection
+$cli $auth_args $con_host_args $ca_file_args test-connection
 set +x
 
 
-# TODO auth + TLS
-
-# echo ">>>>>>>>>>>>>>>>>>>> TEST CONNECTION: WITH-CERTIFICATE"
+#########################################################################
+echo ">>>>>>>>>>>>>>>>>>>> TEST CONNECTION: WITH-CERTIFICATE <<<<<<<<"
+#########################################################################
 start-dependencies-cert $image
-# TODO: provide certificate, possibly test interaction with auth ... might just not be needed though.
-# $cli test-connection $host
 
+
+cert_args="--cert ./etc/docker-cassandra/secrets/keystore.p12:cassandra"
+
+set -x
+$cli $con_host_args --cert-type PK12 $cert_args $ca_file_args test-connection
+$cli $con_host_args $cert_args $ca_file_args test-connection \
+  || { echo "cert-type PK12 is defaulting to the one type we currently know"; exit 4; }
+$cli $con_host_args $ca_file_args test-connection \
+  && { echo "it doesnt work with without a certificate as server requires client cert"; exit 5; }
+
+set +x
