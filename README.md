@@ -140,7 +140,7 @@ A Cassandra Native Protocol 3 implementation using Tokio for IO.
     * [ ] Changes to the paging state of Result messages
     * [ ] Read_failure error code
     * **Resquests**
-      * [ ] custom QueryHandler suppoert for QUERY, PREPARE, EXECUTE and BATCH
+      * [ ] custom QueryHandler support for QUERY, PREPARE, EXECUTE and BATCH
     * **Responses**
       * [ ] Warnings support
       * **Result**
