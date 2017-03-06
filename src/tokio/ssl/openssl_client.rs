@@ -69,6 +69,18 @@ impl<Kind, P> SslClient<Kind, P>
                                                 let builder = connector.builder_mut();
                                                 builder.set_private_key(&identity.pkey)
                                                     .and_then(|_| builder.set_certificate(&identity.cert))
+                                                    .and_then(|_| builder.check_private_key())
+                                                    .and_then(move |_| {
+                                                        // TODO: remove this once this is available upstream:
+                                                        // https://github.com/sfackler/rust-openssl/pull/592
+                                                        if identity.chain.len() as isize == -1 {
+                                                            return Ok(());
+                                                        }
+                                                        for cert in identity.chain {
+                                                            builder.add_extra_chain_cert(cert)?
+                                                        }
+                                                        Ok(())
+                                                    })
                                             })
                                             .map_err(io_err)
                                             .map(|_| connector)
