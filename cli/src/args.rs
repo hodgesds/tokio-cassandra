@@ -15,6 +15,8 @@ use dns_lookup::lookup_host;
 pub struct ConnectionOptions {
     pub client: Client,
     pub addr: SocketAddr,
+    pub host: String,
+    pub port: u16,
     pub creds: Option<Credentials>,
     pub tls: Option<ssl::Options>,
 }
@@ -58,7 +60,12 @@ impl FromStr for Pk12WithOptionalPassword {
 impl ConnectionOptions {
     pub fn try_from(args: &clap::ArgMatches) -> Result<ConnectionOptions> {
         let host = args.value_of("host").expect("clap to work");
+        let port = args.value_of("port").expect("clap to work");
+        let port: u16 = port.parse()
+            .chain_err(|| format!("Port '{}' could not be parsed as number", port))?;
         Ok(ConnectionOptions {
+            host: host.into(),
+            port: port,
             client: Client {
                 protocol: CqlProto {
                     version: ProtocolVersion::Version3,
@@ -99,9 +106,6 @@ impl ConnectionOptions {
                 _ => None,
             },
             addr: {
-                let port = args.value_of("port").expect("clap to work");
-                let port: u16 = port.parse()
-                    .chain_err(|| format!("Port '{}' could not be parsed as number", port))?;
                 net::IpAddr::from_str(host).or_else(|parse_err| {
                         lookup_host(host)
                             .map_err(|err| {
