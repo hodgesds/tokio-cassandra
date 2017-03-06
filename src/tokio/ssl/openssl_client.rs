@@ -10,6 +10,7 @@ use tokio_openssl::{SslStream, SslConnectorExt};
 use tokio::utils::io_err;
 use futures::{Future, Poll, Async, future};
 use openssl::pkcs12::Pkcs12;
+use openssl::x509::X509;
 use openssl::ssl::{SslMethod, SslConnectorBuilder};
 
 use super::{Credentials, Options};
@@ -92,7 +93,31 @@ impl<Kind, P> SslClient<Kind, P>
                                     Some(fp) => {
                                         connector.builder_mut()
                                             .set_ca_file(&fp)
-                                            .map_err(|e| format!("Failed to use certificate-authority file at '{}' with error: {}", fp, e))
+                                            .map_err(|e| {
+                                                format!("Failed to use certificate-authority \
+                                                         file at '{}' with error: {}",
+                                                        fp,
+                                                        e)
+                                            })
+                                            .map_err(io_err)
+                                            .and_then(|_| {
+                                                use ::std::fs::File;
+                                                use ::std::io::Read;
+                                                let mut f = File::open(&fp).unwrap();
+                                                let mut buf = Vec::new();
+                                                f.read_to_end(&mut buf).unwrap();
+                                                X509::from_pem(&buf)
+                                                    .map_err(|e| {
+                                                        format!("Failed to read PEM file with trusted \
+                                                         certificates at '{}' with errror: {}",
+                                                                fp,
+                                                                e)
+                                                    })
+                                                    .map_err(io_err)
+                                                .and_then(|x509|
+                                                    connector.builder_mut().cert_store_mut().add_cert(x509)
+                                                    .map_err(io_err))
+                                            })
                                             .map_err(io_err)
                                             .map(|_| connector)
                                     }
