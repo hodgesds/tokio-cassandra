@@ -3,6 +3,7 @@ mod query {
     use super::super::args::ConnectionOptions;
     use super::super::errors::*;
     use tokio_cassandra::codec::primitives::{CqlFrom, CqlLongString};
+    use tokio_cassandra::codec::header::Header;
     use std::fs::File;
     use std::io::{self, Read};
 
@@ -18,8 +19,9 @@ mod query {
                 file_content: match args.value_of("file") {
                     None => String::new(),
                     Some(fp) => {
+                        let s = io::stdin();
                         let mut f: Box<Read> = match fp {
-                            "-" => Box::new(io::stdin()),
+                            "-" => Box::new(s.lock()),
                             _ => Box::new(File::open(&fp)
                                 .chain_err(|| format!("Failed to open CQL file at '{}' for reading", fp))?),
                         };
@@ -87,8 +89,24 @@ mod query {
                 if args.is_present("dry-run") {
                     println!("{}", query);
                 } else {
+                    // FIXME: provide a consuming version stat consumes a string directly into the vec
+                    // and thus prevents an entirely unnecessary copy
                     let _query = CqlLongString::<Vec<u8>>::try_from(&query)?;
-                    unimplemented!();
+
+                    #[derive(Deserialize, Serialize)]
+                    struct Demo {
+                        result_example: Header,
+                        description: String,
+                    }
+                    let demo = Demo {
+                        result_example: Header::try_from(b"\x03\x02\x00\x00\x05\x00\x00\x00\x00").unwrap(),
+                        description: "I believe we need to implement the serde-traits manually on our response \
+                                      types to implement it in a controlled fashion without extra copies."
+                            .into(),
+                    };
+                    let s = io::stdout();
+                    let mut lio = s.lock();
+                    ::serde_json::ser::to_writer_pretty(&mut lio, &demo)?;
                 }
                 Ok(())
             })

@@ -1,6 +1,12 @@
 #[macro_use]
 extern crate clap;
 
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
+extern crate serde_json;
+extern crate serde_yaml;
+
 #[macro_use]
 extern crate error_chain;
 extern crate tokio_cassandra;
@@ -28,6 +34,7 @@ pub mod errors {
             SemVerParse(SemVerError);
             // FIXME: use links {} instead - however, failed for me.
             CodecPrimitive(codec::primitives::Error);
+            SerdeJson(::serde_json::Error);
             Other(io::Error);
         }
 
