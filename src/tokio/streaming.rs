@@ -8,7 +8,7 @@ use futures::{future, Future};
 use tokio_core::reactor::Handle;
 use tokio_proto::util::client_proxy::{Response as ClientProxyResponse, ClientProxy};
 use tokio_proto::streaming::Message;
-use tokio_proto::streaming::multiplex::{RequestId, ClientProto, Frame};
+use tokio_proto::streaming::multiplex::ClientProto;
 use tokio_proto::TcpClient;
 use tokio_core::io::{Io, Framed};
 use std::io;
@@ -128,30 +128,6 @@ impl Client {
         Box::new(ret)
     }
 }
-
-impl From<CodecInputFrame> for SimpleResponse {
-    fn from(f: CodecInputFrame) -> Self {
-        match f {
-            Frame::Message { id, message, .. } => SimpleResponse(id, message.into()),
-            Frame::Error { .. } => panic!("Frame errors cannot happen here - this is only done during the handshake"),
-            Frame::Body { .. } => panic!("Streamed bodies must not happen for the simple responses we expect here"),
-        }
-    }
-}
-
-impl From<SimpleRequest> for CodecOutputFrame {
-    fn from(SimpleRequest(id, msg): SimpleRequest) -> Self {
-        Frame::Message {
-            id: id,
-            message: msg,
-            body: false,
-            solo: false,
-        }
-    }
-}
-
-pub struct SimpleResponse(pub RequestId, pub response::Message);
-pub struct SimpleRequest(pub RequestId, pub request::Message);
 
 // TODO: prevent infinite recursion on malformed input
 fn interpret_response_and_handle(handle: ClientHandle,
