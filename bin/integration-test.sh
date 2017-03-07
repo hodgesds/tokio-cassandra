@@ -63,7 +63,7 @@ start-dependencies-cert $image
 cert_args="--cert ./etc/docker-cassandra/secrets/keystore.p12:cassandra"
 
 set -x
-$cli $con_host_args --cert-type PK12 $cert_args $ca_file_args test-connection
+$cli $con_host_args --cert-type pkcs12 $cert_args $ca_file_args test-connection
 $cli $con_host_args $cert_args $ca_file_args test-connection \
   || { echo "cert-type PK12 is defaulting to the one type we currently know"; exit 4; }
 $cli $con_host_args $ca_file_args test-connection \

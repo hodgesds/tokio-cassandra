@@ -24,7 +24,7 @@ quick_main!(run);
 
 pub fn run() -> Result<()> {
     env_logger::init().unwrap();
-    let default_cert_type = format!("{}", CertKind::PK12);
+    let default_cert_type = format!("{}", CertKind::pkcs12);
     let default_output_format = format!("{}", OutputFormat::json);
 
     let mut app: clap::App = app_from_crate!();

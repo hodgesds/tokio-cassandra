@@ -17,24 +17,26 @@ use semver;
 
 // FIXME lowercase
 arg_enum!{
+    #[allow(non_camel_case_types)]
     #[derive(Debug)]
     pub enum CliProtoVersion {
-        V3
+        v3
     }
 }
 
 // FIXME lowercase and name: pkcs12
 arg_enum!{
+    #[allow(non_camel_case_types)]
     #[derive(Debug)]
     pub enum CertKind {
-        PK12
+        pkcs12
     }
 }
 
 impl From<ProtocolVersion> for CliProtoVersion {
     fn from(v: ProtocolVersion) -> Self {
         match v {
-            ProtocolVersion::Version3 => CliProtoVersion::V3,
+            ProtocolVersion::Version3 => CliProtoVersion::v3,
         }
     }
 }
@@ -42,7 +44,7 @@ impl From<ProtocolVersion> for CliProtoVersion {
 impl From<CliProtoVersion> for ProtocolVersion {
     fn from(v: CliProtoVersion) -> Self {
         match v {
-            CliProtoVersion::V3 => ProtocolVersion::Version3,
+            CliProtoVersion::v3 => ProtocolVersion::Version3,
         }
     }
 }
