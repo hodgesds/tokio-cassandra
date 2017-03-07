@@ -111,7 +111,8 @@ pub fn run() -> Result<()> {
                 .takes_value(true)
                 .long("keyspace")
                 .short("k")
-                .help("Uses the given keyspace before invoking any query provided later. Similar to prepending your query with 'use <keyspace>'."))
+                .help("Uses the given keyspace before invoking any query provided later. Similar to prepending \
+                       your query with 'use <keyspace>'."))
             .arg(Arg::with_name("execute")
                 .required(false)
                 .takes_value(true)

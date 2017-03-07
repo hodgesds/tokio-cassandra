@@ -6,14 +6,14 @@ mod query {
 
     struct Options {
         execute: String,
-        keyspace: Option<String>
+        keyspace: Option<String>,
     }
 
     impl Options {
         fn try_from(args: &clap::ArgMatches) -> Result<Options> {
             Ok(Options {
                 execute: args.value_of("execute").map(Into::into).unwrap_or_else(Default::default),
-                keyspace: args.value_of("keyspace").map(Into::into)
+                keyspace: args.value_of("keyspace").map(Into::into),
             })
         }
 
@@ -26,6 +26,13 @@ mod query {
             if q.len() == 0 {
                 bail!("Query cannot be empty")
             } else {
+                let len;
+                {
+                    let trimmed = q.trim_right();
+                    len = trimmed.len();
+                }
+                q.truncate(len);
+
                 if !q.ends_with(';') {
                     q.push(';');
                 }

@@ -16,5 +16,8 @@ $cli $conargs $query \
   
 [ "$($cli $conargs $query -k ks -e foo)" = "use ks; foo;" ] \
   || { echo "a keyspace is prepended"; exit 2; }
+  
+[ "$($cli $conargs $query -k ks)" = "use ks;" ] \
+  || { echo "Just the keyspace is fine"; exit 2; }
 
 echo OK  
