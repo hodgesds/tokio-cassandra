@@ -4,7 +4,7 @@ mod query {
     use super::super::errors::*;
     use tokio_cassandra::codec::primitives::{CqlFrom, CqlLongString};
     use std::fs::File;
-    use std::io::Read;
+    use std::io::{self, Read};
 
     struct Options {
         file_content: String,
@@ -18,8 +18,11 @@ mod query {
                 file_content: match args.value_of("file") {
                     None => String::new(),
                     Some(fp) => {
-                        let mut f =
-                            File::open(&fp).chain_err(|| format!("Failed to open CQL file at '{}' for reading", fp))?;
+                        let mut f: Box<Read> = match fp {
+                            "-" => Box::new(io::stdin()),
+                            _ => Box::new(File::open(&fp)
+                                .chain_err(|| format!("Failed to open CQL file at '{}' for reading", fp))?),
+                        };
                         let mut buf = String::new();
                         f.read_to_string(&mut buf)?;
                         buf

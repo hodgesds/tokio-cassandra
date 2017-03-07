@@ -25,5 +25,11 @@ $cli $conargs $query \
   
 [ "$($cli $conargs $query -f <(echo foo;))" = "foo;" ] \
   || { echo "There are no double-semicolons with --file"; exit 2; }
+  
+[ "$(echo foo | $cli $conargs $query -f -)" = "foo;" ] \
+  || { echo "--file from stdin must become part of query and end in semicolon"; exit 2; }
+  
+[ "$(echo "foo;" | $cli $conargs $query -f -)" = "foo;" ] \
+  || { echo "There are no double-semicolons with --file from stdin"; exit 2; }
 
 echo OK  

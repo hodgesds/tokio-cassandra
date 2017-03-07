@@ -118,8 +118,8 @@ pub fn run() -> Result<()> {
                 .takes_value(true)
                 .long("file")
                 .short("f")
-                .help("Execute the CQL statements in the given file. Will be executed before the --execute \
-                       statement."))
+                .help("Execute the CQL statements in the given file. If the path is '-', the statements will be \
+                       read from standard input. Will be executed before the --execute statement."))
             .arg(Arg::with_name("execute")
                 .required(false)
                 .takes_value(true)
