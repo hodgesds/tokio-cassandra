@@ -1,3 +1,4 @@
+pub mod error;
 pub mod easy;
 pub mod streaming;
 pub mod ssl;

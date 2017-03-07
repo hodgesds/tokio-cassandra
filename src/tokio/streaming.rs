@@ -19,23 +19,9 @@ use std::net::SocketAddr;
 use super::utils::{io_err, decode_complete_message_by_opcode};
 use super::ssl;
 
+// FIXME - don't use pub here, fix imports
 pub use super::messages::*;
-
-error_chain!{
-    errors{
-        CqlError(code: i32, msg: String) {
-            description("Cql error message from server")
-            display("CQL Server Error({}): {}", code, msg)
-        }
-        HandshakeError(msg: String)
-    }
-
-    foreign_links{
-        IoErr(::std::io::Error);
-    }
-}
-
-
+pub use super::error::*;
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct CqlCodec {
