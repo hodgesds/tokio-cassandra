@@ -44,6 +44,12 @@ pub fn run() -> Result<()> {
             .takes_value(true)
             .help("A directory into which to dump all frames in order they arrive, \
                    differentiating them by their op-code."))
+        .arg(Arg::with_name("cql-version")
+            .required(false)
+            .takes_value(true)
+            .long("desired-cql-version")
+            .help("The semantic CQL version that you require the server to support, like '3.2.1'. It defaults to \
+                   the highest supported version offered by the server."))
         .arg(Arg::with_name("host")
             .required(true)
             .takes_value(true)

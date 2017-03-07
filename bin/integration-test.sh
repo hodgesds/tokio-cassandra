@@ -25,6 +25,9 @@ start-dependencies-plain $image
 set -x
 $cli $con_ip_args test-connection
 $cli $con_host_args test-connection
+$cli --desired-cql-version 3.0.0 $con_host_args test-connection
+$cli --desired-cql-version 2.0.0 $con_host_args test-connection \
+  && { echo "server cannot handle versions that are too low"; exit 6; }
 
 $cli $con_ip_args --tls $ca_file_args  test-connection \
   && { echo "should not connect if ip is set when using tls - verification must fail"; exit 1; }

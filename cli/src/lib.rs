@@ -7,16 +7,19 @@ extern crate tokio_core;
 extern crate tokio_service;
 extern crate futures;
 extern crate dns_lookup;
+extern crate semver;
 
 pub mod errors {
     use std::num::ParseIntError;
     use std::net::AddrParseError;
+    use semver::SemVerError;
     use std::io;
 
     error_chain!{
         foreign_links {
             ParseInt(ParseIntError);
             AddrParse(AddrParseError);
+            SemVerParse(SemVerError);
             Other(io::Error);
         }
 

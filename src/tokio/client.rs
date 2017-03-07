@@ -104,7 +104,7 @@ fn ssl_client(protocol: CqlProto,
 }
 
 #[derive(Clone, Default)]
-pub struct Options {
+pub struct ConnectOptions {
     pub creds: Option<Credentials>,
     pub tls: Option<ssl::Options>,
     pub desired_cql_version: Option<semver::Version>,
@@ -114,9 +114,9 @@ impl Client {
     pub fn connect(self,
                    addr: &SocketAddr,
                    handle: &Handle,
-                   options: Options)
+                   options: ConnectOptions)
                    -> Box<Future<Item = ClientHandle, Error = Error>> {
-        let Options { creds, tls, desired_cql_version } = options;
+        let ConnectOptions { creds, tls, desired_cql_version } = options;
         let ret = match tls {
                 Some(tls) => ssl_client(self.protocol, addr, handle, tls),
                 None => Box::new(TcpClient::new(self.protocol).connect(addr, handle)),

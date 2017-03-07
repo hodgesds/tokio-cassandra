@@ -13,13 +13,14 @@ use tokio_cassandra::codec::authentication::Credentials;
 use tokio_cassandra::codec::header::ProtocolVersion;
 use tokio_core::reactor::Core;
 use dns_lookup::lookup_host;
+use semver;
 
 pub struct ConnectionOptions {
     pub client: Client,
     pub addr: SocketAddr,
     pub host: String,
     pub port: u16,
-    pub options: client::Options,
+    pub options: client::ConnectOptions,
 }
 
 struct Pk12WithOptionalPassword {
@@ -107,7 +108,7 @@ impl ConnectionOptions {
                     })
                     .map(|ip| SocketAddr::new(ip, port))?
             },
-            options: client::Options {
+            options: client::ConnectOptions {
                 tls: match (args.is_present("tls"), args.value_of("cert"), args.value_of("ca-file")) {
                     (true, cert, ca_file) |
                     (false, cert @ Some(_), ca_file) |
@@ -146,6 +147,15 @@ impl ConnectionOptions {
                         })
                     }
                     _ => None,
+                },
+                desired_cql_version: match args.value_of("cql-version") {
+                    None => None,
+                    Some(s) => {
+                        Some(semver::Version::parse(s).chain_err(|| {
+                                format!("Could not parse desired cql version as semantic version: '{}'",
+                                        s)
+                            })?)
+                    }
                 },
                 ..Default::default()
             },
