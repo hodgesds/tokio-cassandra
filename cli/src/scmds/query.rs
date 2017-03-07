@@ -92,21 +92,27 @@ pub fn query(opts: ConnectionOptions, args: &clap::ArgMatches) -> Result<()> {
     let addr = format!("{}:{}", opts.host, opts.port);
     let query = Options::try_from(args)?.try_into_query_string()?;
     let (mut core, client) = opts.connect();
+
+    if args.is_present("dry-run") {
+        println!("{}", query);
+        return Ok(())
+    }
+
     core.run(client)
         .chain_err(|| format!("Failed to connect to {}", addr))
         .and_then(|_client| {
+            // FIXME: provide a consuming version stat consumes a string directly into the vec
+            // and thus prevents an entirely unnecessary copy
+            let _query = CqlLongString::<Vec<u8>>::try_from(&query)?;
             if args.is_present("dry-run") {
                 println!("{}", query);
             } else {
-                // FIXME: provide a consuming version stat consumes a string directly into the vec
-                // and thus prevents an entirely unnecessary copy
-                let _query = CqlLongString::<Vec<u8>>::try_from(&query)?;
-
                 #[derive(Deserialize, Serialize)]
                 struct Demo {
                     result_example: Header,
                     description: String,
                 }
+
                 let demo = Demo {
                     result_example: Header::try_from(b"\x03\x02\x00\x00\x05\x00\x00\x00\x00").unwrap(),
                     description: "I believe we need to implement the serde-traits manually on our response \
