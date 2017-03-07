@@ -9,7 +9,7 @@ use tokio_service::Service;
 use futures::{future, Future};
 use tokio_core::reactor::Handle;
 use tokio_proto::util::client_proxy::{Response as ClientProxyResponse, ClientProxy};
-use tokio_proto::streaming::{Message, Body};
+use tokio_proto::streaming::Message;
 use tokio_proto::streaming::multiplex::{RequestId, ClientProto, Frame};
 use tokio_proto::TcpClient;
 use tokio_core::io::{EasyBuf, Codec, Io, Framed};
@@ -18,6 +18,8 @@ use std::io::Write;
 use std::net::SocketAddr;
 use super::utils::{io_err, decode_complete_message_by_opcode};
 use super::ssl;
+
+pub use super::messages::*;
 
 error_chain!{
     errors{
@@ -33,62 +35,6 @@ error_chain!{
     }
 }
 
-/// A chunk of a result - similar to response::ResultMessage, but only a chunk of it
-/// TODO: this is just a dummy to show the intent - this is likely to change
-#[derive(Debug)]
-pub struct ResultChunk;
-
-/// A message representing a partial response
-#[derive(Debug)]
-pub enum ChunkedMessage {
-    Result(ResultChunk),
-}
-
-/// Streamable responses use the body type, which implements stream, with the streamable response.
-/// In our case, this will only be the Result response
-/// TODO: fix comment above once things get clearer
-#[derive(Debug)]
-pub enum StreamingMessage {
-    Supported(response::SupportedMessage),
-    Error(response::ErrorMessage),
-    Partial(ResponseStream),
-    Authenticate(response::AuthenticateMessage),
-    AuthSuccess(response::AuthSuccessMessage),
-    Ready,
-}
-
-impl From<StreamingMessage> for response::Message {
-    fn from(f: StreamingMessage) -> Self {
-        use self::StreamingMessage::*;
-        match f {
-            Ready => response::Message::Ready,
-            Supported(msg) => response::Message::Supported(msg),
-            Error(msg) => response::Message::Error(msg),
-            AuthSuccess(msg) => response::Message::AuthSuccess(msg),
-            Authenticate(msg) => response::Message::Authenticate(msg),
-            Partial(_) => panic!("Partials are not suppported - this is just used during handshake"),
-        }
-    }
-}
-
-impl From<response::Message> for StreamingMessage {
-    fn from(f: response::Message) -> Self {
-        match f {
-            response::Message::Ready => StreamingMessage::Ready,
-            response::Message::Supported(msg) => StreamingMessage::Supported(msg),
-            response::Message::AuthSuccess(msg) => StreamingMessage::AuthSuccess(msg),
-            response::Message::Authenticate(msg) => StreamingMessage::Authenticate(msg),
-            response::Message::Error(msg) => StreamingMessage::Error(msg),
-            response::Message::Result => unimplemented!(),
-        }
-    }
-}
-
-type ResponseStream = Body<ChunkedMessage, io::Error>;
-type ResponseMessage = Message<StreamingMessage, ResponseStream>;
-
-type RequestMessage = Message<request::Message, RequestStream>;
-type RequestStream = Body<request::Message, io::Error>;
 
 
 #[derive(PartialEq, Debug, Clone)]
