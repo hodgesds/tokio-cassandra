@@ -320,13 +320,19 @@ fn ssl_client(protocol: CqlProto,
     Box::new(SslClient::new(protocol, tls).connect(addr, handle))
 }
 
+#[derive(Clone, Default)]
+pub struct Options {
+    pub creds: Option<Credentials>,
+    pub tls: Option<ssl::Options>,
+}
+
 impl Client {
     pub fn connect(self,
                    addr: &SocketAddr,
                    handle: &Handle,
-                   creds: Option<Credentials>,
-                   tls: Option<ssl::Options>)
+                   options: Options)
                    -> Box<Future<Item = ClientHandle, Error = Error>> {
+        let Options { creds, tls } = options;
         let ret = match tls {
                 Some(tls) => ssl_client(self.protocol, addr, handle, tls),
                 None => Box::new(TcpClient::new(self.protocol).connect(addr, handle)),

@@ -17,8 +17,7 @@ pub struct ConnectionOptions {
     pub addr: SocketAddr,
     pub host: String,
     pub port: u16,
-    pub creds: Option<Credentials>,
-    pub tls: Option<ssl::Options>,
+    pub options: streaming::Options,
 }
 
 struct Pk12WithOptionalPassword {
@@ -82,36 +81,6 @@ impl ConnectionOptions {
                     },
                 },
             },
-            tls: match (args.is_present("tls"), args.value_of("cert"), args.value_of("ca-file")) {
-                (true, cert, ca_file) |
-                (false, cert @ Some(_), ca_file) |
-                (false, cert, ca_file @ Some(_)) => {
-                    Some(ssl::Options {
-                        domain: match net::IpAddr::from_str(host) {
-                            Ok(ip) => {
-                                bail!(format!("When using TLS, the host name must not be an IP address, got {}",
-                                              ip))
-                            }
-                            Err(_) => host.into(),
-                        },
-
-                        configuration: ssl::Configuration::Predefined(ssl::EasyConfiguration {
-                            credentials: match cert {
-                                Some(s) => {
-                                    Some(Pk12WithOptionalPassword::from_str(s)
-                                        .chain_err(|| {
-                                            format!("Failed to interpret Pk12 file with password from '{}'", s)
-                                        })?
-                                        .into())
-                                }
-                                None => None,
-                            },
-                            certificate_authority_file: ca_file.map(String::from),
-                        }),
-                    })
-                }
-                _ => None,
-            },
             addr: {
                 net::IpAddr::from_str(host).or_else(|parse_err| {
                         lookup_host(host)
@@ -136,14 +105,46 @@ impl ConnectionOptions {
                     })
                     .map(|ip| SocketAddr::new(ip, port))?
             },
-            creds: match (args.value_of("user"), args.value_of("password")) {
-                (Some(usr), Some(pwd)) => {
-                    Some(Credentials::Login {
-                        username: usr.to_string(),
-                        password: pwd.to_string(),
-                    })
-                }
-                _ => None,
+            options: streaming::Options {
+                tls: match (args.is_present("tls"), args.value_of("cert"), args.value_of("ca-file")) {
+                    (true, cert, ca_file) |
+                    (false, cert @ Some(_), ca_file) |
+                    (false, cert, ca_file @ Some(_)) => {
+                        Some(ssl::Options {
+                            domain: match net::IpAddr::from_str(host) {
+                                Ok(ip) => {
+                                    bail!(format!("When using TLS, the host name must not be an IP address, got {}",
+                                                  ip))
+                                }
+                                Err(_) => host.into(),
+                            },
+
+                            configuration: ssl::Configuration::Predefined(ssl::EasyConfiguration {
+                                credentials: match cert {
+                                    Some(s) => {
+                                        Some(Pk12WithOptionalPassword::from_str(s)
+                                            .chain_err(|| {
+                                                format!("Failed to interpret Pk12 file with password from '{}'", s)
+                                            })?
+                                            .into())
+                                    }
+                                    None => None,
+                                },
+                                certificate_authority_file: ca_file.map(String::from),
+                            }),
+                        })
+                    }
+                    _ => None,
+                },
+                creds: match (args.value_of("user"), args.value_of("password")) {
+                    (Some(usr), Some(pwd)) => {
+                        Some(Credentials::Login {
+                            username: usr.to_string(),
+                            password: pwd.to_string(),
+                        })
+                    }
+                    _ => None,
+                },
             },
         })
     }
@@ -151,7 +152,7 @@ impl ConnectionOptions {
     pub fn connect(self) -> (Core, Box<Future<Item = ClientHandle, Error = streaming::Error>>) {
         let core = Core::new().expect("Core can be created");
         let handle = core.handle();
-        let client = self.client.connect(&self.addr, &handle, self.creds, self.tls);
+        let client = self.client.connect(&self.addr, &handle, self.options);
         (core, client)
     }
 }
