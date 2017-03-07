@@ -6,7 +6,7 @@ use tokio_service::Service;
 use futures::{future, Future};
 
 use super::error::*;
-use super::streaming::{StreamingMessage, ClientHandle};
+use super::client::{StreamingMessage, ClientHandle};
 
 // TODO: prevent infinite recursion on malformed input
 pub fn interpret_response_and_handle(handle: ClientHandle,

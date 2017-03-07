@@ -87,6 +87,8 @@ fn ssl_client(_protocol: CqlProto,
               _handle: &Handle,
               _tls: ssl::Options)
               -> Box<Future<Item = ClientProxy<RequestMessage, ResponseMessage, io::Error>, Error = io::Error>> {
+    use futures::future;
+    use super::utils::io_err;
     Box::new(future::err(io_err("Please compile this library with \
                                                      --features=ssl")))
 }

@@ -6,7 +6,10 @@ use tokio_proto::streaming::multiplex::{RequestId, Frame};
 use tokio_core::io::{EasyBuf, Codec};
 use std::{io, mem};
 use std::io::Write;
-use super::utils::{io_err, decode_complete_message_by_opcode};
+use codec::header::OpCode;
+use codec::response::{self, CqlDecode};
+use super::utils::io_err;
+
 
 // FIXME - don't use pub here, fix imports
 pub use super::messages::*;
@@ -166,4 +169,19 @@ fn assert_stream_id(id: u16) {
     assert!(id as i16 > -1,
             "stream-id {} was negative, which makes it a broadcast id with a special meaning",
             id);
+}
+
+fn decode_complete_message_by_opcode(version: ProtocolVersion,
+                                     code: OpCode,
+                                     buf: EasyBuf)
+                                     -> response::Result<response::Message> {
+    use codec::header::OpCode::*;
+    Ok(match code {
+        Supported => response::Message::Supported(response::SupportedMessage::decode(version, buf)?),
+        Ready => response::Message::Ready,
+        Authenticate => response::Message::Authenticate(response::AuthenticateMessage::decode(version, buf)?),
+        AuthSuccess => response::Message::AuthSuccess(response::AuthSuccessMessage::decode(version, buf)?),
+        Error => response::Message::Error(response::ErrorMessage::decode(version, buf)?),
+        _ => unimplemented!(),
+    })
 }

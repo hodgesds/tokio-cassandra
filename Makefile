@@ -25,6 +25,7 @@ toc:
 	doctoc --github --title "A Cassandra Native Protocol 3 implementation using Tokio for IO." README.md
 	
 unit-tests:
+	cargo build # Build with default features
 	cargo doc --all-features
 	cargo test --all-features
 
