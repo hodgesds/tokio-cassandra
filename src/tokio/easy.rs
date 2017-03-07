@@ -1,16 +1,16 @@
-use super::streaming::{StreamingMessage, ClientHandle};
+use super::streaming::{StreamingMessage, ClientHandle as ComplexClientHandle};
 use tokio_service::Service;
 use futures::Future;
 use codec::{response, request};
 use std::io;
 
-pub struct EasyClientHandle {
-    inner: ClientHandle,
+pub struct ClientHandle {
+    inner: ComplexClientHandle,
 }
 
-impl From<ClientHandle> for EasyClientHandle {
-    fn from(f: ClientHandle) -> Self {
-        EasyClientHandle { inner: f }
+impl From<ComplexClientHandle> for ClientHandle {
+    fn from(f: ComplexClientHandle) -> Self {
+        ClientHandle { inner: f }
     }
 }
 
@@ -39,7 +39,7 @@ impl From<StreamingMessage> for Message {
     }
 }
 
-impl Service for EasyClientHandle {
+impl Service for ClientHandle {
     type Request = request::Message;
     type Response = StreamingMessage;
     type Error = io::Error;
