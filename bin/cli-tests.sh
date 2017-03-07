@@ -6,18 +6,24 @@ conargs="-h localhost"
 query="query --dry-run"
 
 $cli $conargs $query \
-  && { echo "should fail if no query parameter was provided at all for now"; exit 1; }
+  && { echo "should fail if no query parameter was provided at all for now"; exit 2; }
   
 [ "$($cli $conargs $query -e foo)" = "foo;" ] \
   || { echo "--execute must become part of query and end in semicolon"; exit 2; }
   
 [ "$($cli $conargs $query -e foo\;)" = "foo;" ] \
-  || { echo "There are no double-semicolons"; exit 2; }
+  || { echo "There are no double-semicolons with --execute"; exit 2; }
   
 [ "$($cli $conargs $query -k ks -e foo)" = "use ks; foo;" ] \
   || { echo "a keyspace is prepended"; exit 2; }
   
 [ "$($cli $conargs $query -k ks)" = "use ks;" ] \
   || { echo "Just the keyspace is fine"; exit 2; }
+  
+[ "$($cli $conargs $query -f <(echo foo))" = "foo;" ] \
+  || { echo "--file must become part of query and end in semicolon"; exit 2; }
+  
+[ "$($cli $conargs $query -f <(echo foo;))" = "foo;" ] \
+  || { echo "There are no double-semicolons with --file"; exit 2; }
 
 echo OK  
