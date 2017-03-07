@@ -15,6 +15,37 @@ use tokio_core::reactor::Core;
 use dns_lookup::lookup_host;
 use semver;
 
+arg_enum!{
+    #[derive(Debug)]
+    pub enum CliProtoVersion {
+        V3
+    }
+}
+
+arg_enum!{
+    #[derive(Debug)]
+    pub enum CertKind {
+        PK12
+    }
+}
+
+impl From<ProtocolVersion> for CliProtoVersion {
+    fn from(v: ProtocolVersion) -> Self {
+        match v {
+            ProtocolVersion::Version3 => CliProtoVersion::V3,
+        }
+    }
+}
+
+impl From<CliProtoVersion> for ProtocolVersion {
+    fn from(v: CliProtoVersion) -> Self {
+        match v {
+            CliProtoVersion::V3 => ProtocolVersion::Version3,
+        }
+    }
+}
+
+
 pub struct ConnectionOptions {
     pub client: Client,
     pub addr: SocketAddr,
@@ -70,7 +101,11 @@ impl ConnectionOptions {
             port: port,
             client: Client {
                 protocol: CqlProto {
-                    version: ProtocolVersion::Version3,
+                    version: args.value_of("protocol-version")
+                        .expect("clap to work")
+                        .parse::<CliProtoVersion>()
+                        .expect("clap to work")
+                        .into(),
                     debug: match (args.value_of("debug-dump-encoded-frames-into-directory"),
                                   args.value_of("debug-dump-decoded-frames-into-directory")) {
                         (None, None) => None,

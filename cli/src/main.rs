@@ -3,6 +3,7 @@ extern crate tcc;
 extern crate futures;
 extern crate tokio_core;
 extern crate tokio_service;
+extern crate tokio_cassandra;
 
 #[macro_use]
 extern crate clap;
@@ -16,16 +17,10 @@ extern crate env_logger;
 use clap::{SubCommand, Arg};
 
 use tcc::errors::*;
-use tcc::ConnectionOptions;
+use tcc::{CertKind, CliProtoVersion, ConnectionOptions};
 
 quick_main!(run);
 
-arg_enum!{
-    #[derive(Debug)]
-    pub enum CertKind {
-        PK12
-    }
-}
 
 pub fn run() -> Result<()> {
     env_logger::init().unwrap();
@@ -44,6 +39,13 @@ pub fn run() -> Result<()> {
             .takes_value(true)
             .help("A directory into which to dump all frames in order they arrive, \
                    differentiating them by their op-code."))
+        .arg(Arg::with_name("protocol-version")
+            .required(false)
+            .takes_value(true)
+            .long("protocol-version")
+            .default_value(&CliProtoVersion::variants()[0])
+            .possible_values(&CliProtoVersion::variants())
+            .help("The protocol version to use. If not specified, the highest-supported version is used."))
         .arg(Arg::with_name("cql-version")
             .required(false)
             .takes_value(true)
