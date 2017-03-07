@@ -7,6 +7,16 @@ mod query {
     use std::fs::File;
     use std::io::{self, Read};
 
+    arg_enum!{
+        #[allow(non_camel_case_types)]
+        #[derive(Debug)]
+        pub enum OutputFormat {
+            yaml,
+            json
+        }
+    }
+
+
     struct Options {
         file_content: String,
         execute: String,
@@ -106,7 +116,11 @@ mod query {
                     };
                     let s = io::stdout();
                     let mut lio = s.lock();
-                    ::serde_json::ser::to_writer_pretty(&mut lio, &demo)?;
+                    match args.value_of("output-format").expect("clap to work").parse().expect("clap to work") {
+                        OutputFormat::json => ::serde_json::ser::to_writer_pretty(&mut lio, &demo)?,
+                        OutputFormat::yaml => ::serde_yaml::to_writer(&mut lio, &demo)?,
+                    }
+                    println!();
                 }
                 Ok(())
             })

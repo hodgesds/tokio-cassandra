@@ -12,7 +12,7 @@ help:
 	$(info unit-tests       | Run tests that don`t need a cassandra node running)
 	$(info integration-tests| Run tests that use a cassandra node)
 	$(info -- DEBUGGING --------------------------------------------------------------------------------------------------)
-	$(info cli-command      | Run the cli with certain arguments to help trying things - needs <some>-docker-db to be run before)
+	$(info cli-execute      | Run the cli with certain arguments to help trying things - needs <some>-docker-db to be run before)
 	$(info secrets          | generate all secrets with default passwords)
 	$(info tls-tests        | Run cli against a TLS instance - needs tls-docker-db)
 	$(info plain-docker-db  | Bring up a backgrounded cassandra database for local usage on 9042, optional TLS)
@@ -51,8 +51,8 @@ type ?= plain
 attach-docker-db:
 	DEBUG_RUN_IMAGE=true $(MAKE) $(type)-docker-db
 
-cli-command:
-	cd cli && cargo run --all-features -- -h localhost query -e foo
+cli-execute:
+	cd cli && cargo run --all-features -- -h localhost query -o yaml -e foo
 
 secrets:
 	$(MAKE) -C etc/docker-cassandra $@

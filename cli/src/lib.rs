@@ -35,6 +35,7 @@ pub mod errors {
             // FIXME: use links {} instead - however, failed for me.
             CodecPrimitive(codec::primitives::Error);
             SerdeJson(::serde_json::Error);
+            SerdeYaml(::serde_yaml::Error);
             Other(io::Error);
         }
 

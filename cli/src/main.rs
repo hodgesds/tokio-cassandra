@@ -17,7 +17,7 @@ extern crate env_logger;
 use clap::{SubCommand, Arg};
 
 use tcc::errors::*;
-use tcc::{CertKind, CliProtoVersion, ConnectionOptions};
+use tcc::{CertKind, OutputFormat, CliProtoVersion, ConnectionOptions};
 
 quick_main!(run);
 
@@ -25,6 +25,7 @@ quick_main!(run);
 pub fn run() -> Result<()> {
     env_logger::init().unwrap();
     let default_cert_type = format!("{}", CertKind::PK12);
+    let default_output_format = format!("{}", OutputFormat::json);
 
     let mut app: clap::App = app_from_crate!();
     app = app.arg(Arg::with_name("debug-dump-encoded-frames-into-directory")
@@ -126,11 +127,20 @@ pub fn run() -> Result<()> {
                 .long("execute")
                 .short("e")
                 .help("Execute the given CQL statement. If a file is read to, the execute statement is always last."))
+            .arg(Arg::with_name("output-format")
+                .required(false)
+                .takes_value(true)
+                .long("output-format")
+                .short("o")
+                .possible_values(&OutputFormat::variants())
+                .default_value(&default_output_format)
+                .help("Defines the serialization format of the query-result."))
             .arg(Arg::with_name("dry-run")
                 .required(false)
                 .long("dry-run")
                 .short("n")
-                .help("Don't execute the generated query, but display it on standard output.")));
+                .help("Don't execute the generated query, but display it on standard output. Output formats are \
+                       just ignored if set.")));
     let args: clap::ArgMatches = app.get_matches();
     let opts = ConnectionOptions::try_from(&args)?;
 

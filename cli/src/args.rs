@@ -15,6 +15,7 @@ use tokio_core::reactor::Core;
 use dns_lookup::lookup_host;
 use semver;
 
+// FIXME lowercase
 arg_enum!{
     #[derive(Debug)]
     pub enum CliProtoVersion {
@@ -22,6 +23,7 @@ arg_enum!{
     }
 }
 
+// FIXME lowercase and name: pkcs12
 arg_enum!{
     #[derive(Debug)]
     pub enum CertKind {
