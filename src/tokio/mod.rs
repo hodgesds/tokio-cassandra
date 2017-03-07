@@ -1,6 +1,7 @@
 pub mod error;
-pub mod easy;
-pub mod streaming;
-pub mod ssl;
 pub mod messages;
+pub mod codec;
+pub mod ssl;
+pub mod streaming;
+pub mod easy;
 mod utils;
