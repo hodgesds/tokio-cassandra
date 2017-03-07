@@ -22,6 +22,7 @@ impl<T> AsRef<str> for CqlLongString<T>
     where T: AsRef<[u8]>
 {
     fn as_ref(&self) -> &str {
+        // FIXME: this is a costly operation - consider unsafe unchecked_from_utf8
         ::std::str::from_utf8(&self.buf.as_ref()).unwrap()
     }
 }

@@ -49,7 +49,7 @@ attach-docker-db:
 	DEBUG_RUN_IMAGE=true $(MAKE) $(type)-docker-db
 
 cli-tests:
-	cd cli && cargo run --all-features -- --cert-type PK12 --cert ../etc/docker-cassandra/secrets/keystore.p12:cassandra --ca-file ../etc/docker-cassandra/secrets/keystore.cer.pem -h localhost test-connection
+	cd cli && cargo run --all-features -- -h localhost query --dry-run
 
 secrets:
 	$(MAKE) -C etc/docker-cassandra $@

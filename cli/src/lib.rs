@@ -14,6 +14,7 @@ pub mod errors {
     use std::num::ParseIntError;
     use std::net::AddrParseError;
     use semver::SemVerError;
+    use tokio_cassandra::codec;
     use std::io;
 
     error_chain!{
@@ -21,10 +22,12 @@ pub mod errors {
             ParseInt(ParseIntError);
             AddrParse(AddrParseError);
             SemVerParse(SemVerError);
+            // FIXME: use links {} instead - however, failed for me. Try upgrading to v0.9!
+            CodecPrimitive(codec::primitives::Error);
             Other(io::Error);
         }
 
-       errors {
+        errors {
             Pk12PathFormat(s: String) {
                 description("Could not parse pk12 file path description: <path>:<password> is required")
                 display("Failed to parse '{}' as <path>:<password>", s)

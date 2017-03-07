@@ -104,12 +104,18 @@ pub fn run() -> Result<()> {
             .help("The path to the certificate file in a format defined by --cert-type. A \
                    password can be provided by separating it with a colon, such as in \
                    /path/to/cert:password."))
-        .subcommand(SubCommand::with_name("test-connection"));
+        .subcommand(SubCommand::with_name("test-connection"))
+        .subcommand(SubCommand::with_name("query").arg(Arg::with_name("dry-run")
+            .required(false)
+            .long("dry-run")
+            .short("n")
+            .help("Don't execute the generated query, but display it on standard output.")));
     let args: clap::ArgMatches = app.get_matches();
     let opts = ConnectionOptions::try_from(&args)?;
 
     match args.subcommand() {
         ("test-connection", Some(args)) => tcc::test_connection(opts, args),
+        ("query", Some(args)) => tcc::query(opts, args),
         _ => {
             println!("{}", args.usage());
             ::std::process::exit(2);
