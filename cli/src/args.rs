@@ -5,8 +5,10 @@ use std::str::{self, FromStr};
 use std::fs::File;
 use std::io::Read;
 use futures::Future;
-use tokio_cassandra::streaming::{self, ClientHandle, CqlCodecDebuggingOptions, CqlProto, Client};
-use tokio_cassandra::ssl;
+use tokio_cassandra::tokio::error::Error as TokioCassandraError;
+use tokio_cassandra::tokio::client::{self, ClientHandle, CqlProto, Client};
+use tokio_cassandra::tokio::codec::CqlCodecDebuggingOptions;
+use tokio_cassandra::tokio::ssl;
 use tokio_cassandra::codec::authentication::Credentials;
 use tokio_cassandra::codec::header::ProtocolVersion;
 use tokio_core::reactor::Core;
@@ -17,7 +19,7 @@ pub struct ConnectionOptions {
     pub addr: SocketAddr,
     pub host: String,
     pub port: u16,
-    pub options: streaming::Options,
+    pub options: client::Options,
 }
 
 struct Pk12WithOptionalPassword {
@@ -105,7 +107,7 @@ impl ConnectionOptions {
                     })
                     .map(|ip| SocketAddr::new(ip, port))?
             },
-            options: streaming::Options {
+            options: client::Options {
                 tls: match (args.is_present("tls"), args.value_of("cert"), args.value_of("ca-file")) {
                     (true, cert, ca_file) |
                     (false, cert @ Some(_), ca_file) |
@@ -150,7 +152,7 @@ impl ConnectionOptions {
         })
     }
 
-    pub fn connect(self) -> (Core, Box<Future<Item = ClientHandle, Error = streaming::Error>>) {
+    pub fn connect(self) -> (Core, Box<Future<Item = ClientHandle, Error = TokioCassandraError>>) {
         let core = Core::new().expect("Core can be created");
         let handle = core.handle();
         let client = self.client.connect(&self.addr, &handle, self.options);

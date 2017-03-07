@@ -30,5 +30,4 @@ extern crate log;
 mod macros;
 
 pub mod codec;
-mod tokio;
-pub use self::tokio::*;
+pub mod tokio;
