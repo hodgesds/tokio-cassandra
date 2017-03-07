@@ -91,42 +91,38 @@ impl Options {
 pub fn query(opts: ConnectionOptions, args: &clap::ArgMatches) -> Result<()> {
     let addr = format!("{}:{}", opts.host, opts.port);
     let query = Options::try_from(args)?.try_into_query_string()?;
-    let (mut core, client) = opts.connect();
 
     if args.is_present("dry-run") {
         println!("{}", query);
-        return Ok(())
+        return Ok(());
     }
 
+    let (mut core, client) = opts.connect();
     core.run(client)
         .chain_err(|| format!("Failed to connect to {}", addr))
         .and_then(|_client| {
             // FIXME: provide a consuming version stat consumes a string directly into the vec
             // and thus prevents an entirely unnecessary copy
             let _query = CqlLongString::<Vec<u8>>::try_from(&query)?;
-            if args.is_present("dry-run") {
-                println!("{}", query);
-            } else {
-                #[derive(Deserialize, Serialize)]
-                struct Demo {
-                    result_example: Header,
-                    description: String,
-                }
 
-                let demo = Demo {
-                    result_example: Header::try_from(b"\x03\x02\x00\x00\x05\x00\x00\x00\x00").unwrap(),
-                    description: "I believe we need to implement the serde-traits manually on our response \
-                                  types to implement it in a controlled fashion without extra copies."
-                        .into(),
-                };
-                let s = io::stdout();
-                let mut lio = s.lock();
-                match args.value_of("output-format").expect("clap to work").parse().expect("clap to work") {
-                    OutputFormat::json => ::serde_json::ser::to_writer_pretty(&mut lio, &demo)?,
-                    OutputFormat::yaml => ::serde_yaml::to_writer(&mut lio, &demo)?,
-                }
-                println!();
+            #[derive(Deserialize, Serialize)]
+            struct Demo {
+                result_example: Header,
+                description: String,
             }
+            let demo = Demo {
+                result_example: Header::try_from(b"\x03\x02\x00\x00\x05\x00\x00\x00\x00").unwrap(),
+                description: "I believe we need to implement the serde-traits manually on our response types to \
+                              implement it in a controlled fashion without extra copies."
+                    .into(),
+            };
+            let s = io::stdout();
+            let mut lio = s.lock();
+            match args.value_of("output-format").expect("clap to work").parse().expect("clap to work") {
+                OutputFormat::json => ::serde_json::ser::to_writer_pretty(&mut lio, &demo)?,
+                OutputFormat::yaml => ::serde_yaml::to_writer(&mut lio, &demo)?,
+            }
+            println!();
             Ok(())
         })
         .map_err(|e| e.into())
