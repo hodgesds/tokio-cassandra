@@ -1,9 +1,11 @@
 use codec::request;
 use codec::response;
 use codec::authentication::{Authenticator, Credentials};
-use codec::primitives::{CqlBytes, CqlFrom};
+use codec::primitives::{CqlString, CqlBytes, CqlFrom};
+use tokio_core::io::EasyBuf;
 use tokio_service::Service;
 use futures::{future, Future};
+use semver;
 
 use super::error::*;
 use super::client::ClientHandle;
@@ -12,20 +14,21 @@ use super::messages::StreamingMessage;
 // TODO: prevent infinite recursion on malformed input
 pub fn interpret_response_and_handle(handle: ClientHandle,
                                      res: StreamingMessage,
-                                     creds: Option<Credentials>)
+                                     creds: Option<Credentials>,
+                                     desired_cql_version: Option<semver::Version>)
                                      -> Box<Future<Item = ClientHandle, Error = Error>> {
     let res: response::Message = res.into();
     match res {
         response::Message::Supported(msg) => {
-            let startup = startup_message_from_supported(msg);
+            let startup = startup_message_from_supported(msg, desired_cql_version.as_ref());
             let f = future::done(startup).and_then(|s| handle.call(s).map_err(|e| e.into()).map(|r| (r, handle)));
-            Box::new(f.and_then(|(res, ch)| interpret_response_and_handle(ch, res, creds))
+            Box::new(f.and_then(move |(res, ch)| interpret_response_and_handle(ch, res, creds, desired_cql_version))
                 .and_then(|ch| Ok(ch)))
         }
         response::Message::Authenticate(msg) => {
             let auth_response = auth_response_from_authenticate(creds.clone(), msg);
             let f = future::done(auth_response).and_then(|s| handle.call(s).map_err(|e| e.into()).map(|r| (r, handle)));
-            Box::new(f.and_then(|(res, ch)| interpret_response_and_handle(ch, res, creds))
+            Box::new(f.and_then(move |(res, ch)| interpret_response_and_handle(ch, res, creds, desired_cql_version))
                 .and_then(|ch| Ok(ch)))
         }
         response::Message::Ready => Box::new(future::ok(handle)),
@@ -45,10 +48,14 @@ pub fn interpret_response_and_handle(handle: ClientHandle,
 
 }
 
-fn startup_message_from_supported(msg: response::SupportedMessage) -> Result<request::Message> {
+fn startup_message_from_supported(msg: response::SupportedMessage,
+                                  dv: Option<&semver::Version>)
+                                  -> Result<request::Message> {
     let startup = {
         request::StartupMessage {
-            cql_version: msg.latest_cql_version()
+            cql_version:
+                dv.map(|v| CqlString::<EasyBuf>::try_from(&v.to_string()).expect("semver to be unicode compatible"))
+                .or_else(|| msg.latest_cql_version().cloned())
                 .ok_or(ErrorKind::HandshakeError("Expected CQL_VERSION to contain at least one version".into()))?
                 .clone(),
             compression: None,

@@ -11,6 +11,7 @@ use tokio_proto::TcpClient;
 use tokio_core::io::{Io, Framed};
 use std::io;
 use std::net::SocketAddr;
+use semver;
 use super::ssl;
 
 use super::error::*;
@@ -106,6 +107,7 @@ fn ssl_client(protocol: CqlProto,
 pub struct Options {
     pub creds: Option<Credentials>,
     pub tls: Option<ssl::Options>,
+    pub desired_cql_version: Option<semver::Version>,
 }
 
 impl Client {
@@ -114,7 +116,7 @@ impl Client {
                    handle: &Handle,
                    options: Options)
                    -> Box<Future<Item = ClientHandle, Error = Error>> {
-        let Options { creds, tls } = options;
+        let Options { creds, tls, desired_cql_version } = options;
         let ret = match tls {
                 Some(tls) => ssl_client(self.protocol, addr, handle, tls),
                 None => Box::new(TcpClient::new(self.protocol).connect(addr, handle)),
@@ -122,7 +124,7 @@ impl Client {
             .map(|client_proxy| ClientHandle { inner: Box::new(client_proxy) })
             .and_then(|client_handle| client_handle.call(request::Message::Options).map(|r| (r, client_handle)))
             .map_err(|e| e.into())
-            .and_then(|(res, ch)| interpret_response_and_handle(ch, res, creds))
+            .and_then(|(res, ch)| interpret_response_and_handle(ch, res, creds, desired_cql_version))
             .and_then(|ch| Ok(ch));
 
         Box::new(ret)
