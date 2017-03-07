@@ -145,6 +145,7 @@ impl ConnectionOptions {
                     }
                     _ => None,
                 },
+                ..Default::default()
             },
         })
     }
