@@ -105,11 +105,18 @@ pub fn run() -> Result<()> {
                    password can be provided by separating it with a colon, such as in \
                    /path/to/cert:password."))
         .subcommand(SubCommand::with_name("test-connection"))
-        .subcommand(SubCommand::with_name("query").arg(Arg::with_name("dry-run")
-            .required(false)
-            .long("dry-run")
-            .short("n")
-            .help("Don't execute the generated query, but display it on standard output.")));
+        .subcommand(SubCommand::with_name("query")
+            .arg(Arg::with_name("execute")
+                .required(false)
+                .takes_value(true)
+                .long("execute")
+                .short("e")
+                .help("Execute the given CQL statement."))
+            .arg(Arg::with_name("dry-run")
+                .required(false)
+                .long("dry-run")
+                .short("n")
+                .help("Don't execute the generated query, but display it on standard output.")));
     let args: clap::ArgMatches = app.get_matches();
     let opts = ConnectionOptions::try_from(&args)?;
 

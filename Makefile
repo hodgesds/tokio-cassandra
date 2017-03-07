@@ -12,7 +12,7 @@ help:
 	$(info unit-tests       | Run tests that don`t need a cassandra node running)
 	$(info integration-tests| Run tests that use a cassandra node)
 	$(info -- DEBUGGING --------------------------------------------------------------------------------------------------)
-	$(info cli-tests        | Run the cli with certain arguments to help debugging - needs <some>-docker-db)
+	$(info cli-command      | Run the cli with certain arguments to help trying things - needs <some>-docker-db to be run before)
 	$(info secrets          | generate all secrets with default passwords)
 	$(info tls-tests        | Run cli against a TLS instance - needs tls-docker-db)
 	$(info plain-docker-db  | Bring up a backgrounded cassandra database for local usage on 9042, optional TLS)
@@ -24,17 +24,20 @@ help:
 toc:
 	doctoc --github --title "A Cassandra Native Protocol 3 implementation using Tokio for IO." README.md
 	
-unit-tests:
+unit-tests: cli-tests
 	cargo build # Build with default features
 	cargo doc --all-features
 	cargo test --all-features
+
+cli-tests: $(CLI_EXECUTABLE)
+	bin/cli-tests.sh $(CLI_EXECUTABLE)
 
 $(CLI_EXECUTABLE): $(shell find cli -name "*.rs")
 	cd cli && cargo build --all-features
 
 integration-tests: $(CLI_EXECUTABLE) $(DB_IMAGE_OK)
 	bin/integration-test.sh $(CLI_EXECUTABLE) $(DB_IMAGE_NAME)
-
+	
 plain-docker-db: $(DB_IMAGE_OK)
 	/usr/bin/env bash -c 'source lib/utilities.sh && start-dependencies-plain $(DB_IMAGE_NAME)'
 
@@ -48,8 +51,8 @@ type ?= plain
 attach-docker-db:
 	DEBUG_RUN_IMAGE=true $(MAKE) $(type)-docker-db
 
-cli-tests:
-	cd cli && cargo run --all-features -- -h localhost query --dry-run
+cli-command:
+	cd cli && cargo run --all-features -- -h localhost query --dry-run -e foo
 
 secrets:
 	$(MAKE) -C etc/docker-cassandra $@

@@ -4,15 +4,24 @@ mod query {
     use super::super::errors::*;
     use tokio_cassandra::codec::primitives::{CqlFrom, CqlLongString};
 
-    struct Options;
+    struct Options {
+        execute: String
+    }
 
     impl Options {
-        fn try_from(_args: &clap::ArgMatches) -> Result<Options> {
-            Ok(Options)
+        fn try_from(args: &clap::ArgMatches) -> Result<Options> {
+            Ok(Options {
+                execute: args.value_of("execute").map(Into::into).unwrap_or_else(Default::default)
+            })
         }
 
         fn try_into_query_string(self) -> Result<String> {
-            Ok(String::new())
+            let q = self.execute;
+            Ok(q).and_then(|q| if q.len() == 0 {
+                bail!("Query cannot be empty")
+            } else {
+                Ok(q)
+            })
         }
     }
 

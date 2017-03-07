@@ -18,11 +18,15 @@ pub mod errors {
     use std::io;
 
     error_chain!{
+// FIXME: use links {} instead - however, failed for me.
+//        links {
+//            CodecPrimitive(codec::primitives::Error, codec::primitives::ErrorKind);
+//        }
         foreign_links {
             ParseInt(ParseIntError);
             AddrParse(AddrParseError);
             SemVerParse(SemVerError);
-            // FIXME: use links {} instead - however, failed for me. Try upgrading to v0.9!
+            // FIXME: use links {} instead - however, failed for me.
             CodecPrimitive(codec::primitives::Error);
             Other(io::Error);
         }
