@@ -1,4 +1,5 @@
-use super::client::{StreamingMessage, ClientHandle as ComplexClientHandle};
+use super::client::ClientHandle as ComplexClientHandle;
+use super::messages::StreamingMessage;
 use tokio_service::Service;
 use futures::Future;
 use codec::{response, request};

@@ -13,11 +13,10 @@ use std::io;
 use std::net::SocketAddr;
 use super::ssl;
 
-// FIXME - don't use pub here, fix imports
-pub use super::messages::*;
-pub use super::error::*;
-pub use super::codec::*;
-pub use super::handshake::*;
+use super::error::*;
+use super::messages::{RequestMessage, ResponseMessage, ChunkedMessage, StreamingMessage};
+use super::codec::{CqlCodec, CqlCodecDebuggingOptions};
+use super::handshake::interpret_response_and_handle;
 
 #[derive(PartialEq, Debug, Clone)]
 pub struct CqlProto {
