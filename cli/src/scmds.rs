@@ -5,23 +5,32 @@ mod query {
     use tokio_cassandra::codec::primitives::{CqlFrom, CqlLongString};
 
     struct Options {
-        execute: String
+        execute: String,
+        keyspace: Option<String>
     }
 
     impl Options {
         fn try_from(args: &clap::ArgMatches) -> Result<Options> {
             Ok(Options {
-                execute: args.value_of("execute").map(Into::into).unwrap_or_else(Default::default)
+                execute: args.value_of("execute").map(Into::into).unwrap_or_else(Default::default),
+                keyspace: args.value_of("keyspace").map(Into::into)
             })
         }
 
         fn try_into_query_string(self) -> Result<String> {
-            let q = self.execute;
-            Ok(q).and_then(|q| if q.len() == 0 {
+            let mut q = String::new();
+            if let Some(ks) = self.keyspace {
+                q.push_str(&format!("use {}; ", ks))
+            }
+            q.push_str(&self.execute);
+            if q.len() == 0 {
                 bail!("Query cannot be empty")
             } else {
+                if !q.ends_with(';') {
+                    q.push(';');
+                }
                 Ok(q)
-            })
+            }
         }
     }
 
